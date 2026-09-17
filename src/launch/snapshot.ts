@@ -70,10 +70,25 @@ export function restoreSnapshot(deps: WorldDeps, snap: Snapshot): void {
   if (problems.length > 0) {
     throw new Error(`Invalid snapshot state: missing ${problems.join(', ')}.`);
   }
-  deps.identity.importUsers(snap.state.identity);
-  deps.listings.store.importState(snap.state.listings);
-  deps.exchanges.store.importState(snap.state.exchanges);
-  deps.reputation.store.importState(snap.state.reputation);
-  deps.moderation.store.importState(snap.state.moderation);
-  deps.notify.importState(snap.state.notifications);
+  const previous = createSnapshot(deps);
+  try {
+    deps.identity.importUsers(snap.state.identity);
+    deps.listings.store.importState(snap.state.listings);
+    deps.exchanges.store.importState(snap.state.exchanges);
+    deps.reputation.store.importState(snap.state.reputation);
+    deps.moderation.store.importState(snap.state.moderation);
+    deps.notify.importState(snap.state.notifications);
+  } catch (error) {
+    try {
+      deps.identity.importUsers(previous.state.identity);
+      deps.listings.store.importState(previous.state.listings);
+      deps.exchanges.store.importState(previous.state.exchanges);
+      deps.reputation.store.importState(previous.state.reputation);
+      deps.moderation.store.importState(previous.state.moderation);
+      deps.notify.importState(previous.state.notifications);
+    } catch (rollbackError) {
+      throw new Error('Snapshot restore failed and rollback could not be completed.', { cause: rollbackError });
+    }
+    throw error;
+  }
 }

@@ -30,6 +30,9 @@ export function computePilotMetrics(deps: MetricsDeps, nowMs = Date.now()): Pilo
   const sanctions = deps.moderation.store.getSanctions().length;
   const handovers = deps.moderation.store.getHandovers().length;
   const reviews = deps.reputation.store.counts();
+  const safetyIncidents = reports.filter((r) =>
+    r.reasonCode === 'stolen-goods' || r.reasonCode === 'unsafe-behavior',
+  ).length;
 
   let received = 0;
   let underReview = 0;
@@ -67,6 +70,7 @@ export function computePilotMetrics(deps: MetricsDeps, nowMs = Date.now()): Pilo
     medianTriageMs,
     sanctions,
     handovers,
+    safetyIncidents,
     reviewsPublished: reviews.published,
     generatedAtMs: nowMs,
   };

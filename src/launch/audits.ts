@@ -30,7 +30,7 @@ export function disclaimerAudit(): DisclaimerFinding[] {
     const text = disclaimerFor(flow);
     const issues: string[] = [];
     if (!text || !text.trim()) issues.push('missing disclaimer text');
-    if (!/terms/i.test(text)) issues.push('must link/mention the full Terms');
+    if (!/(?:https?:\/\/|\/)terms\b/i.test(text)) issues.push('must link to the full Terms');
     if (text.trim().length < MIN_DISCLAIMER_LENGTH) {
       issues.push(`too short to be substantive (min ${MIN_DISCLAIMER_LENGTH} chars)`);
     }

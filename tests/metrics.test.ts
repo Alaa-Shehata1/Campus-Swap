@@ -97,6 +97,7 @@ describe('metrics', () => {
       reportsReceived: 0, reportsUnderReview: 0, reportsResolved: 5,
       medianTriageMs: 10 * 60 * 60 * 1000, sanctions: 1, handovers: 0,
       reviewsPublished: 60, generatedAtMs: Date.now(),
+      safetyIncidents: 0,
     });
     assert.equal(p.members.met && p.listings.met && p.completions.met && p.triage.met, true);
   });

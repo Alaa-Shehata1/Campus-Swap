@@ -1,4 +1,6 @@
 export interface HealthDeps {
+  policy: { disclaimerFor(flow: 'signup'): string };
+  privacy: { anonymizeText(text: string): string };
   identity: { userStats(): unknown };
   listings: { store: { countByStatus(): unknown } };
   exchanges: { store: { exchangeStats(): unknown } };
@@ -17,6 +19,8 @@ export interface HealthReport {
 export function healthCheck(deps: HealthDeps, nowMs = Date.now()): HealthReport {
   const checks: Record<string, 'ok' | 'fail'> = {};
   const probes: Record<string, () => unknown> = {
+    policy: () => deps.policy.disclaimerFor('signup'),
+    privacy: () => deps.privacy.anonymizeText('health-check'),
     identity: () => deps.identity.userStats(),
     listings: () => deps.listings.store.countByStatus(),
     exchanges: () => deps.exchanges.store.exchangeStats(),

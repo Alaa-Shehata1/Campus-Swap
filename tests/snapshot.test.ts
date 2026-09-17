@@ -96,6 +96,28 @@ describe('snapshot', () => {
     );
   });
 
+  it('rolls back all stores when a later restore import fails', () => {
+    const src = world();
+    const dst = fresh();
+    const original = computePilotMetrics(dst);
+    const snap = createSnapshot(src);
+    const originalImport = dst.moderation.store.importState.bind(dst.moderation.store);
+    let failOnce = true;
+    dst.moderation.store.importState = (state) => {
+      if (failOnce) {
+        failOnce = false;
+        throw new Error('restore failure');
+      }
+      originalImport(state);
+    };
+    assert.throws(() => restoreSnapshot(dst, snap), /restore failure/);
+    dst.moderation.store.importState = originalImport;
+    assert.deepEqual(
+      { ...computePilotMetrics(dst), generatedAtMs: 0 },
+      { ...original, generatedAtMs: 0 },
+    );
+  });
+
   it('block/mute pairs survive restore (sessions do not)', () => {
     const src = world();
     src.identity.block(src.aid, src.bid);

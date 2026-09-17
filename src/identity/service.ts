@@ -195,8 +195,25 @@ export function createIdentityService(store = new IdentityStore()) {
   }
 
   /** Resolve a session token to its owner. HTTP layer must bind this to mutations (S-1/S-2). */
-  function resolveSession(token: string): string | undefined {
-    return sessions.get(token);
+  function resolveSession(token: unknown): string | undefined {
+    if (typeof token !== 'string') return undefined;
+    const userId = sessions.get(token);
+    const user = userId ? store.findById(userId) : undefined;
+    if (!user || user.deactivated || user.restriction !== 'none') {
+      sessions.delete(token);
+      return undefined;
+    }
+    return userId;
+  }
+
+  function authorizeMemberSession(token: unknown): Result<string> {
+    const userId = resolveSession(token);
+    if (!userId) return fail([{ code: 'login-required', message: 'A valid member session is required.' }]);
+    const user = store.findById(userId);
+    if (!user || user.role !== 'member') {
+      return fail([{ code: 'not-permitted', message: 'Only member sessions can perform this action.' }]);
+    }
+    return ok(userId);
   }
 
   function logout(token: string): void {
@@ -246,6 +263,7 @@ export function createIdentityService(store = new IdentityStore()) {
     register,
     authenticate,
     resolveSession,
+    authorizeMemberSession,
     logout,
     getProfile,
     updateProfile,

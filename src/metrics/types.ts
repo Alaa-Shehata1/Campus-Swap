@@ -14,6 +14,7 @@ export interface PilotMetrics {
   medianTriageMs: number | null;
   sanctions: number;
   handovers: number;
+  safetyIncidents: number;
   reviewsPublished: number;
   generatedAtMs: number;
 }

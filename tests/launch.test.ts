@@ -10,6 +10,8 @@ import { createReputationService } from '../src/reputation/service.js';
 import { createModerationService } from '../src/moderation/service.js';
 import { createNotificationsService } from '../src/notifications/service.js';
 import { computePilotMetrics } from '../src/metrics/service.js';
+import { disclaimerFor } from '../src/policy/disclaimers.js';
+import { createPrivacyService } from '../src/privacy/service.js';
 describe('launch audits', () => {
   it('disclaimers present on all 5 flows with terms link and plain language', () => {
     const findings = disclaimerAudit();
@@ -31,11 +33,17 @@ describe('launch audits', () => {
     const reputation = createReputationService({ exchanges });
     const moderation = createModerationService({ listings, identity, reputation });
     const notifications = createNotificationsService();
-    const healthy = healthCheck({ identity, listings, exchanges, reputation, moderation, notifications });
+    const healthy = healthCheck({
+      identity, listings, exchanges, reputation, moderation, notifications,
+      policy: { disclaimerFor },
+      privacy: createPrivacyService(),
+    });
     assert.equal(healthy.status, 'ok');
     const broken = healthCheck({
       identity: { userStats: () => { throw new Error('db down'); } },
       listings, exchanges, reputation, moderation, notifications,
+      policy: { disclaimerFor },
+      privacy: createPrivacyService(),
     });
     assert.equal(broken.status, 'degraded');
     assert.equal(broken.checks['identity'], 'fail');
@@ -50,7 +58,11 @@ describe('launch gate', () => {
     const reputation = createReputationService({ exchanges });
     const moderation = createModerationService({ listings, identity, reputation });
     const notifications = createNotificationsService();
-    const deps = { identity, listings, exchanges, reputation, moderation, notifications };
+    const deps = {
+      identity, listings, exchanges, reputation, moderation, notifications,
+      policy: { disclaimerFor },
+      privacy: createPrivacyService(),
+    };
     return { deps, metrics: computePilotMetrics(deps), health: healthCheck(deps) };
   }
 
