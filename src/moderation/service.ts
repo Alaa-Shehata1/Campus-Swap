@@ -11,6 +11,7 @@ import type {
 } from './types.js';
 import type { Listing } from '../listings/types.js';
 import type { Restriction, UserPublic } from '../identity/types.js';
+import type { Message } from '../exchanges/types.js';
 import type { Review } from '../reputation/types.js';
 
 export const MAX_REPORT_IMAGES = 3;
@@ -42,6 +43,13 @@ export interface ModerationDeps {
   };
   reputation: {
     voidReview(by: string, id: string, reason: string): Result<Review>;
+  };
+  /** Optional: required only for case-gated thread evidence (P-4). */
+  exchanges?: {
+    readThread(exchangeId: string): Message[];
+  };
+  privacy?: {
+    checkCaseAccess(moderatorId: string, hasOpenCase: boolean): Result<{ granted: true; atMs: number }>;
   };
 }
 
@@ -268,6 +276,16 @@ export function createModerationService(
     return ok(handover);
   }
 
+  /** Case-gated thread evidence (P-4): denied + logged without an open case. */
+  function viewThread(moderatorId: string, exchangeId: string): Result<Message[]> {
+    if (!deps.exchanges || !deps.privacy) {
+      return fail([{ code: 'not-configured', message: 'Thread evidence is not configured.' }]);
+    }
+    const gate = deps.privacy.checkCaseAccess(moderatorId, store.hasOpenCase());
+    if (!gate.ok) return gate;
+    return ok(deps.exchanges.readThread(exchangeId));
+  }
+
   function auditLog(): AuditEntry[] {
     const entries: AuditEntry[] = [
       ...store.getSanctions().map((s) => ({ kind: 'sanction' as const, ...s })),
@@ -277,7 +295,7 @@ export function createModerationService(
     return entries.sort((a, b) => a.atMs - b.atMs);
   }
 
-  return { report, getReport, triage, sanction, unhide, voidReview, escalate, auditLog, store };
+  return { report, getReport, triage, sanction, unhide, voidReview, escalate, viewThread, auditLog, store };
 }
 
 export type ModerationService = ReturnType<typeof createModerationService>;
