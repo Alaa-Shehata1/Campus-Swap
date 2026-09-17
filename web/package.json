@@ -1,0 +1,20 @@
+{
+  "name": "campuswap-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "CampusSwap web tier (Next.js, Phase 5 U1) + MySQL repositories",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "seed": "tsx db/seed.ts"
+  },
+  "dependencies": {
+    "mysql2": "^3.11.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.4",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}
