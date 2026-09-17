@@ -1,4 +1,4 @@
-import type { Category } from '../../policy/taxonomy.js';
+import type { Category } from '../policy/taxonomy.js';
 
 export type ListingSide = 'offer' | 'request';
 export type ListingKind = 'skill' | 'item';
