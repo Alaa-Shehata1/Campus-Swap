@@ -2,6 +2,7 @@ import { fail, ok, type Result } from '../common/errors.js';
 import { ModerationStore } from './store.js';
 import type {
   AuditEntry,
+  Handover,
   ReasonCode,
   Report,
   ReportStatus,
@@ -99,20 +100,30 @@ export function createModerationService(
       ]);
     }
     const atMs = now();
-    return ok(
-      store.insertReport({
-        reporterId,
-        targetType: input.targetType,
-        targetId: input.targetId,
-        reasonCode: input.reasonCode,
-        description,
-        images: [...input.images],
-        status: 'Received',
-        createdAtMs: atMs,
-        history: [{ status: 'Received', atMs }],
-        escalated: false,
-      }),
-    );
+    const created = store.insertReport({
+      reporterId,
+      targetType: input.targetType,
+      targetId: input.targetId,
+      reasonCode: input.reasonCode,
+      description,
+      images: [...input.images],
+      status: 'Received',
+      createdAtMs: atMs,
+      history: [{ status: 'Received', atMs }],
+      escalated: false,
+    });
+    // Stolen-item path (FR-M-5): hide-first, then moderator review.
+    if (input.reasonCode === 'stolen-goods' && input.targetType === 'listing') {
+      const hidden = deps.listings.systemHide(input.targetId);
+      if (hidden.ok) {
+        created.escalated = true;
+        created.status = 'Under review';
+        created.history.push({ status: 'Under review', atMs });
+        store.openCase(created.id);
+        store.saveReport(created);
+      }
+    }
+    return ok(created);
   }
 
   function getReport(id: string): Report | undefined {
@@ -211,6 +222,52 @@ export function createModerationService(
     return voided;
   }
 
+  /**
+   * Law-enforcement handover for stolen items (FR-M-5). Only with owner
+   * (human developer) approval; evidence is preserved immutably in the
+   * handover log. No delete APIs exist, so post-escalation deletion is
+   * impossible by construction.
+   */
+  function escalate(
+    reportId: string,
+    moderatorId: string,
+    input: { ownerApproved: boolean },
+  ): Result<Handover> {
+    const r = store.getReport(reportId);
+    if (!r) return fail([{ code: 'not-found', message: 'Report not found.' }]);
+    if (!r.escalated || r.status !== 'Under review') {
+      return fail([
+        { code: 'invalid-transition', message: 'Only escalated reports under review can be handed over.' },
+      ]);
+    }
+    if (input.ownerApproved !== true) {
+      return fail([
+        {
+          code: 'handover-approval-required',
+          message: 'Law-enforcement handover requires owner (human developer) approval.',
+        },
+      ]);
+    }
+    const atMs = now();
+    const handover = store.addHandover({
+      reportId,
+      by: moderatorId,
+      atMs,
+      evidence: {
+        reasonCode: r.reasonCode,
+        description: r.description,
+        reporterId: r.reporterId,
+        targetType: r.targetType,
+        targetId: r.targetId,
+      },
+    });
+    r.status = 'Resolved';
+    r.history.push({ status: 'Resolved', atMs, by: moderatorId });
+    store.closeCase(reportId);
+    store.saveReport(r);
+    return ok(handover);
+  }
+
   function auditLog(): AuditEntry[] {
     const entries: AuditEntry[] = [
       ...store.getSanctions().map((s) => ({ kind: 'sanction' as const, ...s })),
@@ -220,7 +277,7 @@ export function createModerationService(
     return entries.sort((a, b) => a.atMs - b.atMs);
   }
 
-  return { report, getReport, triage, sanction, unhide, voidReview, auditLog, store };
+  return { report, getReport, triage, sanction, unhide, voidReview, escalate, auditLog, store };
 }
 
 export type ModerationService = ReturnType<typeof createModerationService>;

@@ -119,3 +119,39 @@ describe('moderation sanctions', () => {
     assert.equal(identity.authenticate('reporter@gmail.com', 'password1').ok, true);
   });
 });
+
+describe('moderation stolen path', () => {
+  it('stolen reports hide-first and open a case immediately', () => {
+    const { listings, moderation, reporter, listing } = setup();
+    const r = moderation.report(reporter, {
+      targetType: 'listing', targetId: listing.id,
+      reasonCode: 'stolen-goods', description: 'Serial-less laptop, seller evasive about origin.',
+      images: [],
+    });
+    assert.equal(r.ok, true);
+    if (!r.ok) return;
+    assert.equal(r.value.escalated, true);
+    assert.equal(r.value.status, 'Under review');
+    assert.equal(listings.get(listing.id)?.status, 'Hidden');
+  });
+
+  it('handover impossible without owner approval; evidence preserved', () => {
+    const { moderation, reporter, listing } = setup();
+    const r = moderation.report(reporter, {
+      targetType: 'listing', targetId: listing.id,
+      reasonCode: 'stolen-goods', description: 'Serial-less laptop, seller evasive about origin.',
+      images: [],
+    });
+    assert.equal(r.ok, true);
+    if (!r.ok) return;
+    const denied = moderation.escalate(r.value.id, 'mod-1', { ownerApproved: false });
+    assert.equal(denied.ok, false);
+    if (!denied.ok) assert.ok(denied.errors.some((e) => e.code === 'handover-approval-required'));
+    const handover = moderation.escalate(r.value.id, 'mod-1', { ownerApproved: true });
+    assert.equal(handover.ok, true);
+    if (!handover.ok) return;
+    assert.equal(handover.value.evidence.targetId, listing.id);
+    assert.equal(handover.value.evidence.reasonCode, 'stolen-goods');
+    assert.equal(moderation.getReport(r.value.id)?.status, 'Resolved');
+  });
+});
