@@ -24,7 +24,3 @@ export async function setSessionCookie(token: string): Promise<void> {
     maxAge: COOKIE_MAX_AGE,
   });
 }
-
-export async function clearSessionCookie(): Promise<void> {
-  (await cookies()).delete(SESSION_COOKIE);
-}
