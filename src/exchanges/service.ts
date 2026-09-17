@@ -7,6 +7,7 @@ import type {
   IdentityPort,
   ListingsPort,
   LockStatus,
+  Message,
   Proposal,
   ProposeInput,
 } from './types.js';
@@ -465,7 +466,47 @@ export function createExchangesService(
     return store.getExchange(id);
   }
 
-  return { propose, getProposal, respond, withdraw, runExpiry, lockStatus, openCount, schedule, markDone, confirm, dispute, runAutoComplete, cancel, getExchange, store };
+  /** Participant-only plain-text thread (FR-E-7). No files in MVP. */
+  function postMessage(senderId: string, exchangeId: string, text: string): Result<Message> {
+    const e = store.getExchange(exchangeId);
+    if (!e) return fail([{ code: 'not-found', message: 'Exchange not found.' }]);
+    if (!isParticipantOf(e, senderId)) {
+      return fail([
+        { code: 'not-participant', message: 'Only exchange participants can post messages.' },
+      ]);
+    }
+    const other = senderId === e.participantA ? e.participantB : e.participantA;
+    if (deps.identity.isBlockedOrMuted(senderId, other)) {
+      return fail([
+        { code: 'blocked', message: 'You cannot message this user (block/mute in effect).' },
+      ]);
+    }
+    const clean = text?.trim() ?? '';
+    if (!clean) {
+      return fail([{ code: 'required', field: 'text', message: 'Message text is required.' }]);
+    }
+    if (clean.length > MAX_MESSAGE_LENGTH) {
+      return fail([
+        {
+          code: 'too-long',
+          field: 'text',
+          message: `Messages must be at most ${MAX_MESSAGE_LENGTH} characters (plain text, no files).`,
+        },
+      ]);
+    }
+    return ok(store.insertMessage({ exchangeId, senderId, text: clean, createdAtMs: now() }));
+  }
+
+  /** Participant-only read; throws for non-participants (no silent leaks). */
+  function getMessages(viewerId: string, exchangeId: string): Message[] {
+    const e = store.getExchange(exchangeId);
+    if (!e || !isParticipantOf(e, viewerId)) {
+      throw new Error('Not a participant of this exchange.');
+    }
+    return store.messagesFor(exchangeId);
+  }
+
+  return { propose, getProposal, respond, withdraw, runExpiry, lockStatus, openCount, schedule, markDone, confirm, dispute, runAutoComplete, cancel, getExchange, postMessage, getMessages, store };
 }
 
 const CANCEL_REASONS: CancelReason[] = ['no-show', 'conflict', 'item-unavailable', 'safety-concern', 'other'];
