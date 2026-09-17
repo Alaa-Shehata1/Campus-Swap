@@ -24,3 +24,8 @@ export interface NotificationItem {
   createdAtMs: number;
   readAtMs?: number;
 }
+
+/** Sink port consumed by domain modules. In-app only — no mail transport. */
+export interface NotifyPort {
+  emit(userId: string, type: NotificationType, ref: string): unknown;
+}

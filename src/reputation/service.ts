@@ -1,4 +1,5 @@
 import { fail, ok, type Result } from '../common/errors.js';
+import type { NotifyPort } from '../notifications/types.js';
 import { ReputationStore } from './store.js';
 import type { Aggregate, ExchangesPort, Review, SubmitReviewInput } from './types.js';
 
@@ -7,7 +8,7 @@ export const REVEAL_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 export const REVIEW_EDIT_MS = 48 * 60 * 60 * 1000;
 
 export function createReputationService(
-  deps: { exchanges: ExchangesPort },
+  deps: { exchanges: ExchangesPort; notify?: NotifyPort },
   opts: { now?: () => number; store?: ReputationStore } = {},
 ) {
   const store = opts.store ?? new ReputationStore();
@@ -64,21 +65,24 @@ export function createReputationService(
     return ok(review);
   }
 
-  /** Publish when both sides submitted or 14 days passed since the earliest submit. */
-  function maybeReveal(exchangeId: string, atMs: number): void {
-    const reviews = store.forExchange(exchangeId).filter((r) => r.status === 'Hidden');
-    if (reviews.length === 0) return;
+  /** Publish when both sides submitted or 14 days passed since the earliest submit. Returns newly published. */
+  function maybeReveal(exchangeId: string, atMs: number): Review[] {
+    const hidden = store.forExchange(exchangeId).filter((r) => r.status === 'Hidden');
+    if (hidden.length === 0) return [];
     const submittedCount = store
       .forExchange(exchangeId)
       .filter((r) => r.status !== 'Voided').length;
-    const earliest = Math.min(...reviews.map((r) => r.submittedAtMs));
-    if (submittedCount >= 2 || atMs - earliest > REVEAL_WINDOW_MS) {
-      for (const r of reviews) {
+    const earliest = Math.min(...hidden.map((r) => r.submittedAtMs));
+    if (submittedCount >= 2 || atMs - earliest >= REVEAL_WINDOW_MS) {
+      for (const r of hidden) {
         r.status = 'Published';
         r.publishedAtMs = atMs;
         store.save(r);
+        deps.notify?.emit(r.revieweeId, 'review-published', r.id);
       }
+      return hidden;
     }
+    return [];
   }
 
   /** Blind read: Hidden reviews visible to their reviewer only; Published to anyone. */
@@ -188,6 +192,7 @@ export function createReputationService(
     }
     r.response = { text, submittedAtMs: now() };
     store.save(r);
+    deps.notify?.emit(r.reviewerId, 'review-response', r.id);
     return ok(r);
   }
 
@@ -240,10 +245,7 @@ export function createReputationService(
   function revealDue(nowMs: number): Review[] {
     const published: Review[] = [];
     for (const exchangeId of store.exchangeIds()) {
-      const before = store.forExchange(exchangeId).filter((x) => x.status === 'Published').length;
-      maybeReveal(exchangeId, nowMs);
-      const after = store.forExchange(exchangeId).filter((x) => x.status === 'Published');
-      if (after.length > before) published.push(...after.slice(before));
+      published.push(...maybeReveal(exchangeId, nowMs));
     }
     return published;
   }

@@ -114,6 +114,9 @@ describe('reputation aggregate/response/void', () => {
       rep.respondToReview(ctx.bid, target.id, { text: 'Again.' }).ok,
       false,
     );
+    assert.equal(rep.editResponse(ctx.bid, target.id, { text: 'Thanks a lot!' }).ok, true);
+    ctx.setNow(ctx.now() + 3 * DAY_MS);
+    assert.equal(rep.editResponse(ctx.bid, target.id, { text: 'Too late.' }).ok, false);
   });
 
   it('void removes from aggregate and is logged; voided reviews immutable', () => {

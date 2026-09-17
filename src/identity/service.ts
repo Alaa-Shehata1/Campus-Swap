@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { fail, ok, type FieldError, type Result } from '../common/errors.js';
 import { IdentityStore, type StoredUser } from './store.js';
-import type { ProfilePatch, RegisterInput, Restriction, Session, UserPublic } from './types.js';
+import type { ProfilePatch, RegisterInput, Restriction, Role, Session, UserPublic } from './types.js';
 
 export const DEFAULT_CAMPUS = 'KFS University';
 export const MAX_BIO_LENGTH = 500;
@@ -160,6 +160,7 @@ export function createIdentityService(store = new IdentityStore()) {
     if (!user) throw new Error('User not found.');
     user.restriction = restriction;
     store.save(user);
+    if (restriction !== 'none') revokeSessions(userId);
   }
 
   /** Deactivation hides the profile and blocks login immediately (P-3). */
@@ -168,6 +169,22 @@ export function createIdentityService(store = new IdentityStore()) {
     if (!user) throw new Error('User not found.');
     user.deactivated = true;
     store.save(user);
+    revokeSessions(userId);
+  }
+
+  /** Bootstrap/owner-only role assignment. HTTP layer must gate to the owner in production. */
+  function setRole(userId: string, role: Role): void {
+    if (role !== 'member' && role !== 'moderator') throw new Error(`Invalid role: ${role}.`);
+    const user = store.findById(userId);
+    if (!user) throw new Error('User not found.');
+    user.role = role;
+    store.save(user);
+  }
+
+  function revokeSessions(userId: string): void {
+    for (const [token, id] of sessions) {
+      if (id === userId) sessions.delete(token);
+    }
   }
 
   /** Resolve a session token to its owner. HTTP layer must bind this to mutations (S-1/S-2). */
@@ -227,6 +244,7 @@ export function createIdentityService(store = new IdentityStore()) {
     isBlockedOrMuted,
     restrict,
     deactivate,
+    setRole,
   };
 }
 

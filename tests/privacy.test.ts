@@ -55,8 +55,13 @@ describe('privacy case access', () => {
       email: 'bob@gmail.com', password: 'password1', displayName: 'Bob',
       campus: 'KFS University', ageConfirmed18: true, rulesAccepted: true,
     });
-    assert.equal(a.ok && b.ok, true);
-    if (!a.ok || !b.ok) throw new Error('setup failed');
+    const m = identity.register({
+      email: 'mod@gmail.com', password: 'password1', displayName: 'Mod',
+      campus: 'KFS University', ageConfirmed18: true, rulesAccepted: true,
+    });
+    assert.equal(a.ok && b.ok && m.ok, true);
+    if (!a.ok || !b.ok || !m.ok) throw new Error('setup failed');
+    identity.setRole(m.value.id, 'moderator');
     const offer = listings.publish(a.value.id, {
       side: 'offer', kind: 'skill', title: 'Python tutoring',
       description: 'I teach Python basics.', category: 'tutoring',
@@ -81,11 +86,11 @@ describe('privacy case access', () => {
     assert.equal(acc.ok && 'exchange' in acc.value, true);
     if (!acc.ok || !('exchange' in acc.value)) throw new Error('setup failed');
     assert.equal(exchanges.postMessage(a.value.id, acc.value.exchange.id, 'Hi!').ok, true);
-    return { moderation, privacy, aid: a.value.id, exchangeId: acc.value.exchange.id, listing: offer.value };
+    return { moderation, privacy, aid: a.value.id, exchangeId: acc.value.exchange.id, listing: offer.value, mod: m.value.id };
   }
 
   it('thread evidence denied + logged without open case; allowed on open case', () => {
-    const { moderation, privacy, aid, exchangeId, listing } = setup();
+    const { moderation, privacy, aid, exchangeId, listing, mod } = setup();
     const report = moderation.report(aid, {
       targetType: 'listing', targetId: listing.id,
       reasonCode: 'harassment', description: 'Threatening language in messages, see evidence.',
@@ -93,15 +98,16 @@ describe('privacy case access', () => {
     });
     assert.equal(report.ok, true);
     if (!report.ok) return;
-    const denied = moderation.viewThread('mod-1', exchangeId);
+    const denied = moderation.viewThread(mod, exchangeId);
     assert.equal(denied.ok, false);
     if (!denied.ok) assert.ok(denied.errors.some((e) => e.code === 'case-required'));
-    assert.equal(moderation.triage(report.value.id, 'mod-1', 'acknowledge').ok, true);
-    const allowed = moderation.viewThread('mod-1', exchangeId);
+    assert.equal(moderation.triage(report.value.id, mod, 'acknowledge').ok, true);
+    const allowed = moderation.viewThread(mod, exchangeId);
     assert.equal(allowed.ok, true);
     if (allowed.ok) assert.equal(allowed.value.length, 1);
     const log = privacy.getAccessLog();
     assert.equal(log.length, 2);
-    assert.ok(log.every((l) => l.moderatorId === 'mod-1'));
+    assert.ok(log.every((l) => l.moderatorId === mod));
+    assert.ok(log.every((l) => l.context === `thread:${exchangeId}`));
   });
 });

@@ -31,7 +31,7 @@ export interface Report extends Omit<ReportInput, 'images'> {
   escalated: boolean;
 }
 
-export type SanctionAction = 'hide' | 'unhide' | 'warn' | 'suspend' | 'ban';
+export type SanctionAction = 'hide' | 'unhide' | 'warn' | 'suspend' | 'ban' | 'clear-restriction';
 
 export interface Sanction {
   id: string;
@@ -60,6 +60,8 @@ export interface Handover {
   evidence: {
     reasonCode: ReasonCode;
     description: string;
+    images: string[];
+    history: Array<{ status: ReportStatus; atMs: number; by?: string }>;
     reporterId: string;
     targetType: ReportTarget;
     targetId: string;

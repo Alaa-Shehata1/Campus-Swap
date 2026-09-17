@@ -10,6 +10,7 @@ export interface AccessLogEntry {
   moderatorId: string;
   granted: boolean;
   atMs: number;
+  context?: string;
 }
 
 /**
@@ -38,9 +39,10 @@ export function createPrivacyService(opts: { now?: () => number } = {}) {
   function checkCaseAccess(
     moderatorId: string,
     hasOpenCase: boolean,
+    context?: string,
   ): Result<{ granted: true; atMs: number }> {
     const atMs = now();
-    accessLog.push({ moderatorId, granted: hasOpenCase, atMs });
+    accessLog.push({ moderatorId, granted: hasOpenCase, atMs, context });
     if (!hasOpenCase) {
       return fail([
         {

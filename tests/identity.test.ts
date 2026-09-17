@@ -135,4 +135,26 @@ describe('identity', () => {
     assert.equal(svc.getProfile(r.value.id), undefined);
     assert.equal(svc.authenticate('d@gmail.com', 'password1').ok, false);
   });
+
+  it('restrict/deactivate revoke live sessions', () => {
+    const svc = createIdentityService();
+    const r = svc.register({ ...BASE, email: 's2@gmail.com' });
+    assert.equal(r.ok, true);
+    if (!r.ok) return;
+    const auth = svc.authenticate('s2@gmail.com', 'password1');
+    assert.equal(auth.ok, true);
+    if (!auth.ok) return;
+    svc.restrict(r.value.id, 'suspended');
+    assert.equal(svc.resolveSession(auth.value.token), undefined);
+  });
+
+  it('setRole promotes to moderator (bootstrap; HTTP layer gates in production)', () => {
+    const svc = createIdentityService();
+    const r = svc.register({ ...BASE, email: 'm@gmail.com' });
+    assert.equal(r.ok, true);
+    if (!r.ok) return;
+    assert.equal(svc.getProfile(r.value.id)?.role, 'member');
+    svc.setRole(r.value.id, 'moderator');
+    assert.equal(svc.getProfile(r.value.id)?.role, 'moderator');
+  });
 });

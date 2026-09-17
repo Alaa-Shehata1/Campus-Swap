@@ -66,4 +66,13 @@ export class ModerationStore {
   hasOpenCase(): boolean {
     return this.openCases.size > 0;
   }
+
+  /** Open (Under review) reports — for purpose-scoped case checks (P-4). */
+  openReports(): Report[] {
+    const out: Report[] = [];
+    for (const r of this.reports.values()) {
+      if (r.status === 'Under review') out.push(structuredClone(r));
+    }
+    return out;
+  }
 }

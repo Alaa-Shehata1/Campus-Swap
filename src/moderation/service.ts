@@ -1,4 +1,4 @@
-import { fail, ok, type Result } from '../common/errors.js';
+import { fail, ok, type FieldError, type Result } from '../common/errors.js';
 import { ModerationStore } from './store.js';
 import type {
   AuditEntry,
@@ -11,7 +11,8 @@ import type {
 } from './types.js';
 import type { Listing } from '../listings/types.js';
 import type { Restriction, UserPublic } from '../identity/types.js';
-import type { Message } from '../exchanges/types.js';
+import type { Exchange, Message } from '../exchanges/types.js';
+import type { NotifyPort } from '../notifications/types.js';
 import type { Review } from '../reputation/types.js';
 
 export const MAX_REPORT_IMAGES = 3;
@@ -29,7 +30,8 @@ const REASON_CODES: ReasonCode[] = [
   'other',
 ];
 
-const SANCTION_ACTIONS: SanctionAction[] = ['hide', 'unhide', 'warn', 'suspend', 'ban'];
+const SANCTION_ACTIONS: SanctionAction[] = ['hide', 'unhide', 'warn', 'suspend', 'ban', 'clear-restriction'];
+const MEMBER_SANCTIONS: SanctionAction[] = ['hide', 'warn', 'suspend', 'ban'];
 
 export interface ModerationDeps {
   listings: {
@@ -46,11 +48,18 @@ export interface ModerationDeps {
   };
   /** Optional: required only for case-gated thread evidence (P-4). */
   exchanges?: {
+    readExchange(id: string): Exchange | undefined;
     readThread(exchangeId: string): Message[];
   };
   privacy?: {
-    checkCaseAccess(moderatorId: string, hasOpenCase: boolean): Result<{ granted: true; atMs: number }>;
+    checkCaseAccess(
+      moderatorId: string,
+      hasOpenCase: boolean,
+      context?: string,
+    ): Result<{ granted: true; atMs: number }>;
   };
+  /** Optional notification sink (FR-N-1 reporter/moderation updates). */
+  notify?: NotifyPort;
 }
 
 export function createModerationService(
@@ -59,6 +68,15 @@ export function createModerationService(
 ) {
   const store = opts.store ?? new ModerationStore();
   const now = opts.now ?? Date.now;
+
+  /** Only moderators wield triage/sanction/escalate powers (S-2). */
+  function requireModerator(actor: string): FieldError | undefined {
+    const profile = deps.identity.getProfile(actor);
+    if (!profile || profile.role !== 'moderator') {
+      return { code: 'not-permitted', message: 'Only moderators can perform this action.' };
+    }
+    return undefined;
+  }
 
   function report(
     reporterId: string,
@@ -121,16 +139,17 @@ export function createModerationService(
       escalated: false,
     });
     // Stolen-item path (FR-M-5): hide-first, then moderator review.
+    // The case opens even if hiding fails (e.g. already archived) so
+    // evidence access never silently degrades.
     if (input.reasonCode === 'stolen-goods' && input.targetType === 'listing') {
-      const hidden = deps.listings.systemHide(input.targetId);
-      if (hidden.ok) {
-        created.escalated = true;
-        created.status = 'Under review';
-        created.history.push({ status: 'Under review', atMs });
-        store.openCase(created.id);
-        store.saveReport(created);
-      }
+      deps.listings.systemHide(input.targetId);
+      created.escalated = true;
+      created.status = 'Under review';
+      created.history.push({ status: 'Under review', atMs });
+      store.openCase(created.id);
+      store.saveReport(created);
     }
+    deps.notify?.emit(reporterId, 'report-status', created.id);
     return ok(created);
   }
 
@@ -144,6 +163,8 @@ export function createModerationService(
     moderatorId: string,
     decision: 'acknowledge' | 'resolve',
   ): Result<Report> {
+    const gate = requireModerator(moderatorId);
+    if (gate) return fail([gate]);
     const r = store.getReport(id);
     if (!r) return fail([{ code: 'not-found', message: 'Report not found.' }]);
     const next: ReportStatus | undefined =
@@ -164,6 +185,7 @@ export function createModerationService(
     if (next === 'Under review') store.openCase(id);
     else store.closeCase(id);
     store.saveReport(r);
+    deps.notify?.emit(r.reporterId, 'report-status', id);
     return ok(r);
   }
 
@@ -172,7 +194,9 @@ export function createModerationService(
     actor: string,
     input: { action: SanctionAction; targetType: 'listing' | 'user'; targetId: string; reason: string },
   ): Result<Sanction> {
-    if (!SANCTION_ACTIONS.includes(input.action) || input.action === 'unhide') {
+    const gate = requireModerator(actor);
+    if (gate) return fail([gate]);
+    if (!MEMBER_SANCTIONS.includes(input.action)) {
       return fail([{ code: 'invalid', field: 'action', message: 'Unknown sanction action.' }]);
     }
     if (!input.reason?.trim()) {
@@ -191,12 +215,40 @@ export function createModerationService(
       if (input.action === 'suspend') deps.identity.restrict(input.targetId, 'suspended');
       if (input.action === 'ban') deps.identity.restrict(input.targetId, 'banned');
     }
+    const created = store.addSanction({
+      action: input.action,
+      targetType: input.targetType,
+      targetId: input.targetId,
+      reason: input.reason.trim(),
+      actor,
+      atMs: now(),
+    });
+    // Reported party notified only on action (FR-M-3): mere reports stay silent.
+    const notifyTarget =
+      input.targetType === 'user'
+        ? input.targetId
+        : deps.listings.get(input.targetId)?.ownerId;
+    if (notifyTarget) deps.notify?.emit(notifyTarget, 'moderation-action', created.id);
+    return ok(created);
+  }
+
+  /** Lift a user restriction (unsuspend/unban). Moderator-guarded and audit-logged. */
+  function clearRestriction(actor: string, userId: string, reason: string): Result<Sanction> {
+    const gate = requireModerator(actor);
+    if (gate) return fail([gate]);
+    if (!deps.identity.getProfile(userId)) {
+      return fail([{ code: 'not-found', message: 'User not found.' }]);
+    }
+    if (!reason?.trim()) {
+      return fail([{ code: 'required', field: 'reason', message: 'A reason is required.' }]);
+    }
+    deps.identity.restrict(userId, 'none');
     return ok(
       store.addSanction({
-        action: input.action,
-        targetType: input.targetType,
-        targetId: input.targetId,
-        reason: input.reason.trim(),
+        action: 'clear-restriction',
+        targetType: 'user',
+        targetId: userId,
+        reason: reason.trim(),
         actor,
         atMs: now(),
       }),
@@ -205,6 +257,8 @@ export function createModerationService(
 
   /** Reverse a hide (appeal upheld). Parks the listing as Paused; audit-logged. */
   function unhide(actor: string, listingId: string, reason: string): Result<Sanction> {
+    const gate = requireModerator(actor);
+    if (gate) return fail([gate]);
     if (!reason?.trim()) {
       return fail([{ code: 'required', field: 'reason', message: 'An unhide reason is required.' }]);
     }
@@ -224,6 +278,8 @@ export function createModerationService(
 
   /** Void an abusive review (FR-M-4). Delegates to reputation; void is logged. */
   function voidReview(actor: string, reviewId: string, reason: string): Result<Review> {
+    const gate = requireModerator(actor);
+    if (gate) return fail([gate]);
     const voided = deps.reputation.voidReview(actor, reviewId, reason);
     if (!voided.ok) return voided;
     store.addVoid({ reviewId, by: actor, reason: reason.trim(), atMs: now() });
@@ -231,16 +287,20 @@ export function createModerationService(
   }
 
   /**
-   * Law-enforcement handover for stolen items (FR-M-5). Only with owner
-   * (human developer) approval; evidence is preserved immutably in the
+   * Law-enforcement handover for stolen items (FR-M-5). Requires verifiable
+   * owner (human developer) approval: the approver must be a moderator other
+   * than the escalating moderator (separation of duties — the moderation lead
+   * owns handover decisions per D14). Evidence is preserved immutably in the
    * handover log. No delete APIs exist, so post-escalation deletion is
    * impossible by construction.
    */
   function escalate(
     reportId: string,
     moderatorId: string,
-    input: { ownerApproved: boolean },
+    input: { ownerApprovedBy: string },
   ): Result<Handover> {
+    const gate = requireModerator(moderatorId);
+    if (gate) return fail([gate]);
     const r = store.getReport(reportId);
     if (!r) return fail([{ code: 'not-found', message: 'Report not found.' }]);
     if (!r.escalated || r.status !== 'Under review') {
@@ -248,11 +308,14 @@ export function createModerationService(
         { code: 'invalid-transition', message: 'Only escalated reports under review can be handed over.' },
       ]);
     }
-    if (input.ownerApproved !== true) {
+    const approver = deps.identity.getProfile(input.ownerApprovedBy);
+    if (!approver || approver.role !== 'moderator' || input.ownerApprovedBy === moderatorId) {
       return fail([
         {
           code: 'handover-approval-required',
-          message: 'Law-enforcement handover requires owner (human developer) approval.',
+          message:
+            'Law-enforcement handover requires approval by the owner ' +
+            '(a moderator other than the escalating moderator).',
         },
       ]);
     }
@@ -264,6 +327,8 @@ export function createModerationService(
       evidence: {
         reasonCode: r.reasonCode,
         description: r.description,
+        images: [...r.images],
+        history: r.history.map((h) => ({ ...h })),
         reporterId: r.reporterId,
         targetType: r.targetType,
         targetId: r.targetId,
@@ -276,12 +341,26 @@ export function createModerationService(
     return ok(handover);
   }
 
-  /** Case-gated thread evidence (P-4): denied + logged without an open case. */
+  /**
+   * Purpose-scoped thread evidence (P-4): allowed only when an open
+   * (Under review) report targets one of the exchange's listings or a
+   * participant. Every check is logged with its context.
+   */
   function viewThread(moderatorId: string, exchangeId: string): Result<Message[]> {
     if (!deps.exchanges || !deps.privacy) {
       return fail([{ code: 'not-configured', message: 'Thread evidence is not configured.' }]);
     }
-    const gate = deps.privacy.checkCaseAccess(moderatorId, store.hasOpenCase());
+    const gateMod = requireModerator(moderatorId);
+    if (gateMod) return fail([gateMod]);
+    const exchange = deps.exchanges.readExchange(exchangeId);
+    if (!exchange) return fail([{ code: 'not-found', message: 'Exchange not found.' }]);
+    const participants = [exchange.participantA, exchange.participantB];
+    const scoped = store.openReports().some(
+      (r) =>
+        (r.targetType === 'listing' && exchange.listingIds.includes(r.targetId)) ||
+        (r.targetType === 'user' && participants.includes(r.targetId)),
+    );
+    const gate = deps.privacy.checkCaseAccess(moderatorId, scoped, `thread:${exchangeId}`);
     if (!gate.ok) return gate;
     return ok(deps.exchanges.readThread(exchangeId));
   }
@@ -295,7 +374,7 @@ export function createModerationService(
     return entries.sort((a, b) => a.atMs - b.atMs);
   }
 
-  return { report, getReport, triage, sanction, unhide, voidReview, escalate, viewThread, auditLog, store };
+  return { report, getReport, triage, sanction, unhide, clearRestriction, voidReview, escalate, viewThread, auditLog, store };
 }
 
 export type ModerationService = ReturnType<typeof createModerationService>;
