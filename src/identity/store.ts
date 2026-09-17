@@ -55,6 +55,13 @@ export class IdentityStore {
     return user ? { ...user } : undefined;
   }
 
+  hasModerator(): boolean {
+    for (const u of this.byId.values()) {
+      if (u.role === 'moderator') return true;
+    }
+    return false;
+  }
+
   verifyPassword(user: StoredUser, password: string): boolean {
     const attempt = scryptSync(password, user.passwordSalt, 64);
     const expected = Buffer.from(user.passwordHash, 'hex');

@@ -172,9 +172,19 @@ export function createIdentityService(store = new IdentityStore()) {
     revokeSessions(userId);
   }
 
-  /** Bootstrap/owner-only role assignment. HTTP layer must gate to the owner in production. */
-  function setRole(userId: string, role: Role): void {
+  /**
+   * Role assignment. Bootstrap (caller 'bootstrap') works only while no
+   * moderator exists; afterwards the caller must be a moderator. The HTTP
+   * layer must additionally gate this to the platform owner in production.
+   */
+  function setRole(callerId: string, userId: string, role: Role): void {
     if (role !== 'member' && role !== 'moderator') throw new Error(`Invalid role: ${role}.`);
+    if (store.hasModerator()) {
+      const caller = store.findById(callerId);
+      if (!caller || caller.role !== 'moderator') {
+        throw new Error('Only moderators can assign roles.');
+      }
+    }
     const user = store.findById(userId);
     if (!user) throw new Error('User not found.');
     user.role = role;

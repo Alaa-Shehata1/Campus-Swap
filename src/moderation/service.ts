@@ -243,16 +243,16 @@ export function createModerationService(
       return fail([{ code: 'required', field: 'reason', message: 'A reason is required.' }]);
     }
     deps.identity.restrict(userId, 'none');
-    return ok(
-      store.addSanction({
-        action: 'clear-restriction',
-        targetType: 'user',
-        targetId: userId,
-        reason: reason.trim(),
-        actor,
-        atMs: now(),
-      }),
-    );
+    const created = store.addSanction({
+      action: 'clear-restriction',
+      targetType: 'user',
+      targetId: userId,
+      reason: reason.trim(),
+      actor,
+      atMs: now(),
+    });
+    deps.notify?.emit(userId, 'moderation-action', created.id);
+    return ok(created);
   }
 
   /** Reverse a hide (appeal upheld). Parks the listing as Paused; audit-logged. */
@@ -264,16 +264,16 @@ export function createModerationService(
     }
     const restored = deps.listings.systemUnhide(listingId);
     if (!restored.ok) return restored as Result<Sanction>;
-    return ok(
-      store.addSanction({
-        action: 'unhide',
-        targetType: 'listing',
-        targetId: listingId,
-        reason: reason.trim(),
-        actor,
-        atMs: now(),
-      }),
-    );
+    const created = store.addSanction({
+      action: 'unhide',
+      targetType: 'listing',
+      targetId: listingId,
+      reason: reason.trim(),
+      actor,
+      atMs: now(),
+    });
+    if (restored.value.ownerId) deps.notify?.emit(restored.value.ownerId, 'moderation-action', created.id);
+    return ok(created);
   }
 
   /** Void an abusive review (FR-M-4). Delegates to reputation; void is logged. */
@@ -290,7 +290,10 @@ export function createModerationService(
    * Law-enforcement handover for stolen items (FR-M-5). Requires verifiable
    * owner (human developer) approval: the approver must be a moderator other
    * than the escalating moderator (separation of duties — the moderation lead
-   * owns handover decisions per D14). Evidence is preserved immutably in the
+   * owns handover decisions per D14). Both identities are recorded in the
+   * handover log; the HTTP layer binds caller/mod/approver ids to verified
+   * sessions, which is what makes the separation real (in-process callers
+   * could otherwise name any id). Evidence is preserved immutably in the
    * handover log. No delete APIs exist, so post-escalation deletion is
    * impossible by construction.
    */
@@ -338,6 +341,7 @@ export function createModerationService(
     r.history.push({ status: 'Resolved', atMs, by: moderatorId });
     store.closeCase(reportId);
     store.saveReport(r);
+    deps.notify?.emit(r.reporterId, 'report-status', reportId);
     return ok(handover);
   }
 

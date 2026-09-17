@@ -225,9 +225,10 @@ export function createReputationService(
   }
 
   /**
-   * Moderation void (FR-M-4). The ONLY way to retract a review besides the
-   * 48h edit window — voids are recorded with actor + reason + timestamp,
-   * never silent (S-5).
+   * Moderation void (FR-M-4). INTERNAL: only the moderation service may call
+   * this — it enforces the moderator-role gate. The ONLY way to retract a
+   * review besides the 48h edit window — voids are recorded with actor +
+   * reason + timestamp, never silent (S-5).
    */
   function voidReview(by: string, id: string, reason: string): Result<Review> {
     const r = store.get(id);
@@ -238,6 +239,7 @@ export function createReputationService(
     r.status = 'Voided';
     r.void = { by, reason: reason.trim(), atMs: now() };
     store.save(r);
+    deps.notify?.emit(r.revieweeId, 'moderation-action', r.id);
     return ok(r);
   }
 

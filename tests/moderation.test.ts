@@ -27,8 +27,8 @@ function setup() {
   });
   assert.equal(rep.ok && own.ok && mod.ok && mod2.ok, true);
   if (!rep.ok || !own.ok || !mod.ok || !mod2.ok) throw new Error('setup failed');
-  identity.setRole(mod.value.id, 'moderator');
-  identity.setRole(mod2.value.id, 'moderator');
+  identity.setRole('bootstrap', mod.value.id, 'moderator');
+  identity.setRole(mod.value.id, mod2.value.id, 'moderator');
   const listing = listings.publish(own.value.id, {
     side: 'offer', kind: 'item', title: 'Cheap phone, hurry',
     description: 'Selling a phone below market price.', category: 'electronics',

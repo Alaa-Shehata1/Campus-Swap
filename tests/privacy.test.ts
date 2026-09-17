@@ -61,7 +61,7 @@ describe('privacy case access', () => {
     });
     assert.equal(a.ok && b.ok && m.ok, true);
     if (!a.ok || !b.ok || !m.ok) throw new Error('setup failed');
-    identity.setRole(m.value.id, 'moderator');
+    identity.setRole('bootstrap', m.value.id, 'moderator');
     const offer = listings.publish(a.value.id, {
       side: 'offer', kind: 'skill', title: 'Python tutoring',
       description: 'I teach Python basics.', category: 'tutoring',

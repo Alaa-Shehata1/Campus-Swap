@@ -154,7 +154,19 @@ describe('identity', () => {
     assert.equal(r.ok, true);
     if (!r.ok) return;
     assert.equal(svc.getProfile(r.value.id)?.role, 'member');
-    svc.setRole(r.value.id, 'moderator');
+    svc.setRole('bootstrap', r.value.id, 'moderator');
     assert.equal(svc.getProfile(r.value.id)?.role, 'moderator');
+  });
+
+  it('once a moderator exists, only moderators assign roles', () => {
+    const svc = createIdentityService();
+    const m = svc.register({ ...BASE, email: 'm2@gmail.com' });
+    const u = svc.register({ ...BASE, email: 'u2@gmail.com' });
+    assert.equal(m.ok && u.ok, true);
+    if (!m.ok || !u.ok) return;
+    svc.setRole('bootstrap', m.value.id, 'moderator');
+    assert.throws(() => svc.setRole(u.value.id, u.value.id, 'moderator'), /only moderators/i);
+    svc.setRole(m.value.id, u.value.id, 'moderator');
+    assert.equal(svc.getProfile(u.value.id)?.role, 'moderator');
   });
 });

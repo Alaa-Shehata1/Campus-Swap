@@ -85,7 +85,7 @@ describe('notification wiring', () => {
   });
 
   it('report lifecycle notifies reporter; sanction notifies target only on action', () => {
-    const { notify, moderation, aid, bid, request } = setup();
+    const { notify, identity, moderation, aid, bid, request } = setup();
     const r = moderation.report(aid, {
       targetType: 'listing', targetId: request.id,
       reasonCode: 'spam-commercial', description: 'Commercial storefront link in description.',
@@ -96,5 +96,81 @@ describe('notification wiring', () => {
     // mere report: reporter updated, reported party silent
     assert.ok(notify.inbox(aid).some((i) => i.type === 'report-status'));
     assert.equal(notify.inbox(bid).length, 0);
+  });
+
+  it('void, unhide, and handover notify the affected users', () => {
+    const { notify, identity, listings, moderation, reputation, exchanges, aid, bid, offer, request } = setup();
+    const mod = identity.register({
+      email: 'mod@gmail.com', password: 'password1', displayName: 'Mod',
+      campus: 'KFS University', ageConfirmed18: true, rulesAccepted: true,
+    });
+    const mod2 = identity.register({
+      email: 'mod2@gmail.com', password: 'password1', displayName: 'Mod2',
+      campus: 'KFS University', ageConfirmed18: true, rulesAccepted: true,
+    });
+    assert.equal(mod.ok && mod2.ok, true);
+    if (!mod.ok || !mod2.ok) return;
+    identity.setRole('bootstrap', mod.value.id, 'moderator');
+    identity.setRole(mod.value.id, mod2.value.id, 'moderator');
+
+    // hide → owner notified; unhide → owner notified
+    assert.equal(
+      moderation.sanction(mod.value.id, {
+        action: 'hide', targetType: 'listing', targetId: offer.id, reason: 'Spam.',
+      }).ok,
+      true,
+    );
+    assert.ok(notify.inbox(aid).some((i) => i.type === 'moderation-action'));
+    assert.equal(moderation.unhide(mod.value.id, offer.id, 'Appeal upheld.').ok, true);
+    assert.equal(listings.transition(aid, offer.id, 'reopen').ok, true);
+
+    // stolen handover → reporter notified
+    const stolen = moderation.report(aid, {
+      targetType: 'listing', targetId: request.id,
+      reasonCode: 'stolen-goods', description: 'Serial-less laptop, seller evasive about origin.',
+      images: [],
+    });
+    assert.equal(stolen.ok, true);
+    if (!stolen.ok) return;
+    const before = notify.inbox(aid).filter((i) => i.type === 'report-status').length;
+    assert.equal(
+      moderation.escalate(stolen.value.id, mod.value.id, { ownerApprovedBy: mod2.value.id }).ok,
+      true,
+    );
+    assert.equal(notify.inbox(aid).filter((i) => i.type === 'report-status').length, before + 1);
+
+    // void → reviewee notified (fresh listings: request was hidden by the stolen path)
+    const offer2 = listings.publish(aid, {
+      side: 'offer', kind: 'skill', title: 'Guitar lessons',
+      description: 'I teach guitar basics.', category: 'music',
+      zone: 'North campus', images: [],
+    });
+    const request2 = listings.publish(bid, {
+      side: 'request', kind: 'skill', title: 'Need guitar help',
+      description: 'Looking for help.', category: 'music',
+      zone: 'North campus', images: [],
+    });
+    assert.equal(offer2.ok && request2.ok, true);
+    if (!offer2.ok || !request2.ok) return;
+    const p = exchanges.propose(aid, {
+      sideAListingIds: [offer2.value.id], sideBListingIds: [request2.value.id], terms: 'Deal.',
+    });
+    assert.equal(p.ok, true);
+    if (!p.ok) return;
+    const acc = exchanges.respond(bid, p.value.id, 'accept');
+    assert.equal(acc.ok && 'exchange' in acc.value, true);
+    if (!acc.ok || !('exchange' in acc.value)) return;
+    const eid = acc.value.exchange.id;
+    assert.equal(
+      exchanges.schedule(aid, eid, { at: new Date(Date.now() + 86400000).toISOString(), place: 'Library' }).ok,
+      true,
+    );
+    assert.equal(exchanges.markDone(aid, eid).ok, true);
+    assert.equal(exchanges.confirm(bid, eid).ok, true);
+    assert.equal(reputation.submitReview(aid, eid, { score: 1, text: 'Abuse.' }).ok, true);
+    assert.equal(reputation.submitReview(bid, eid, { score: 5 }).ok, true);
+    const target = reputation.aggregate(bid).history[0]!;
+    assert.equal(moderation.voidReview(mod.value.id, target.id, 'Abusive content.').ok, true);
+    assert.ok(notify.inbox(bid).some((i) => i.type === 'moderation-action'));
   });
 });
