@@ -1,6 +1,6 @@
 import { fail, ok, type Result } from '../common/errors.js';
 import { ReputationStore } from './store.js';
-import type { ExchangesPort, Review, SubmitReviewInput } from './types.js';
+import type { Aggregate, ExchangesPort, Review, SubmitReviewInput } from './types.js';
 
 export const MAX_REVIEW_TEXT = 1000;
 export const REVEAL_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
@@ -136,6 +136,106 @@ export function createReputationService(
     return ok(r);
   }
 
+  /** Aggregate reputation: average + count + distribution + full history (FR-R-3). */
+  function aggregate(userId: string): Aggregate {
+    const history = store.publishedFor(userId);
+    const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    let sum = 0;
+    for (const r of history) {
+      distribution[r.score as 1 | 2 | 3 | 4 | 5] += 1;
+      sum += r.score;
+    }
+    return {
+      average: history.length === 0 ? 0 : sum / history.length,
+      count: history.length,
+      distribution,
+      history,
+    };
+  }
+
+  /** One response per review by the reviewed party (FR-R-5). */
+  function respondToReview(
+    revieweeId: string,
+    id: string,
+    input: RespondInput,
+  ): Result<Review> {
+    const r = store.get(id);
+    if (!r || r.revieweeId !== revieweeId) {
+      return fail([{ code: 'not-found', message: 'Review not found.' }]);
+    }
+    if (r.status !== 'Published') {
+      return fail([
+        { code: 'invalid-transition', message: 'Only published reviews can receive a response.' },
+      ]);
+    }
+    if (r.response) {
+      return fail([
+        { code: 'duplicate-response', message: 'Only one response per review is allowed.' },
+      ]);
+    }
+    const text = input.text?.trim() ?? '';
+    if (!text) {
+      return fail([{ code: 'required', field: 'text', message: 'Response text is required.' }]);
+    }
+    if (text.length > MAX_REVIEW_TEXT) {
+      return fail([
+        {
+          code: 'too-long',
+          field: 'text',
+          message: `Response text must be at most ${MAX_REVIEW_TEXT} characters.`,
+        },
+      ]);
+    }
+    r.response = { text, submittedAtMs: now() };
+    store.save(r);
+    return ok(r);
+  }
+
+  function editResponse(revieweeId: string, id: string, input: RespondInput): Result<Review> {
+    const r = store.get(id);
+    if (!r || r.revieweeId !== revieweeId || !r.response) {
+      return fail([{ code: 'not-found', message: 'Response not found.' }]);
+    }
+    if (now() - r.response.submittedAtMs > REVIEW_EDIT_MS) {
+      return fail([
+        { code: 'edit-window-passed', message: 'The 48-hour edit window has passed.' },
+      ]);
+    }
+    const text = input.text?.trim() ?? '';
+    if (!text) {
+      return fail([{ code: 'required', field: 'text', message: 'Response text is required.' }]);
+    }
+    if (text.length > MAX_REVIEW_TEXT) {
+      return fail([
+        {
+          code: 'too-long',
+          field: 'text',
+          message: `Response text must be at most ${MAX_REVIEW_TEXT} characters.`,
+        },
+      ]);
+    }
+    r.response = { ...r.response, text, editedAtMs: now() };
+    store.save(r);
+    return ok(r);
+  }
+
+  /**
+   * Moderation void (FR-M-4). The ONLY way to retract a review besides the
+   * 48h edit window — voids are recorded with actor + reason + timestamp,
+   * never silent (S-5).
+   */
+  function voidReview(by: string, id: string, reason: string): Result<Review> {
+    const r = store.get(id);
+    if (!r) return fail([{ code: 'not-found', message: 'Review not found.' }]);
+    if (!reason?.trim()) {
+      return fail([{ code: 'required', field: 'reason', message: 'A void reason is required.' }]);
+    }
+    r.status = 'Voided';
+    r.void = { by, reason: reason.trim(), atMs: now() };
+    store.save(r);
+    return ok(r);
+  }
+
   /** Time-based reveal job. Returns newly published reviews for the notification sink. */
   function revealDue(nowMs: number): Review[] {
     const published: Review[] = [];
@@ -148,7 +248,11 @@ export function createReputationService(
     return published;
   }
 
-  return { submitReview, getReview, editReview, revealDue, store };
+  return { submitReview, getReview, editReview, revealDue, aggregate, respondToReview, editResponse, voidReview, store };
+}
+
+export interface RespondInput {
+  text: string;
 }
 
 export type ReputationService = ReturnType<typeof createReputationService>;

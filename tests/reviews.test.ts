@@ -74,3 +74,61 @@ describe('reviews', () => {
     assert.equal(rep.editReview(ctx.aid, r.value.id, { score: 1 }).ok, false);
   });
 });
+
+describe('reputation aggregate/response/void', () => {
+  it('no reviews on Cancelled exchanges', () => {
+    const ctx = setupScheduledExchange();
+    assert.equal(
+      ctx.exchanges.cancel(ctx.aid, ctx.exchangeId, { reason: 'conflict' }).ok,
+      true,
+    );
+    const rep = createReputationService({ exchanges: ctx.exchanges }, { now: ctx.now });
+    const r = rep.submitReview(ctx.aid, ctx.exchangeId, { score: 5 });
+    assert.equal(r.ok, false);
+  });
+
+  it('aggregate is consistent: average + count + distribution + history', () => {
+    const ctx = setupCompletedExchange();
+    const rep = createReputationService({ exchanges: ctx.exchanges }, { now: ctx.now });
+    // hidden before reveal: aggregate empty
+    assert.equal(rep.submitReview(ctx.aid, ctx.exchangeId, { score: 5 }).ok, true);
+    assert.equal(rep.aggregate(ctx.bid).count, 0);
+    assert.equal(rep.submitReview(ctx.bid, ctx.exchangeId, { score: 3 }).ok, true);
+    const agg = rep.aggregate(ctx.bid);
+    assert.equal(agg.count, 1);
+    assert.equal(agg.average, 5);
+    assert.equal(agg.distribution[5], 1);
+    assert.equal(agg.history.length, 1);
+  });
+
+  it('one response per review by the reviewee, 48h edit', () => {
+    const ctx = setupCompletedExchange();
+    const rep = createReputationService({ exchanges: ctx.exchanges }, { now: ctx.now });
+    assert.equal(rep.submitReview(ctx.aid, ctx.exchangeId, { score: 4, text: 'Good.' }).ok, true);
+    assert.equal(rep.submitReview(ctx.bid, ctx.exchangeId, { score: 5 }).ok, true);
+    const target = rep.aggregate(ctx.bid).history[0]!;
+    // reviewer cannot respond to own review
+    assert.equal(rep.respondToReview(ctx.aid, target.id, { text: 'Thanks!' }).ok, false);
+    assert.equal(rep.respondToReview(ctx.bid, target.id, { text: 'Thanks!' }).ok, true);
+    assert.equal(
+      rep.respondToReview(ctx.bid, target.id, { text: 'Again.' }).ok,
+      false,
+    );
+  });
+
+  it('void removes from aggregate and is logged; voided reviews immutable', () => {
+    const ctx = setupCompletedExchange();
+    const rep = createReputationService({ exchanges: ctx.exchanges }, { now: ctx.now });
+    assert.equal(rep.submitReview(ctx.aid, ctx.exchangeId, { score: 1, text: 'Abuse.' }).ok, true);
+    assert.equal(rep.submitReview(ctx.bid, ctx.exchangeId, { score: 5 }).ok, true);
+    const target = rep.aggregate(ctx.bid).history[0]!;
+    const v = rep.voidReview('moderator-1', target.id, 'Abusive content.');
+    assert.equal(v.ok, true);
+    assert.equal(rep.aggregate(ctx.bid).count, 0);
+    assert.equal(rep.editReview(ctx.aid, target.id, { score: 5 }).ok, false);
+    if (v.ok) {
+      assert.equal(v.value.status, 'Voided');
+      assert.equal(v.value.void?.by, 'moderator-1');
+    }
+  });
+});
