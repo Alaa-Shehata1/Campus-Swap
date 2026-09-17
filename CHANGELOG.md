@@ -12,7 +12,7 @@
 - Backup/restore: full-fidelity snapshot round-trip demonstrated by test
   (metrics/login/audit/inbox preserved; unknown versions rejected).
   Snapshots are sensitive (salted hashes included) — handled like DB dumps.
-- 113 tests green (`npm test`), `tsc --noEmit` clean.
+- 116 tests green (`npm test`), `tsc --noEmit` clean.
 
 ## 2026-09-17 — Phase 3: Reviews + Reports + Moderation + Notifications (BL-11..BL-14)
 
