@@ -1,6 +1,7 @@
 import { fail, ok, type Result } from '../common/errors.js';
 import { ExchangesStore } from './store.js';
 import type {
+  Exchange,
   IdentityPort,
   ListingsPort,
   LockStatus,
@@ -139,8 +140,12 @@ export function createExchangesService(
     return store.getProposal(id);
   }
 
-  /** Counterparty declines. Accept arrives in the accept task (auto-pause + holds). */
-  function respond(userId: string, id: string, decision: 'decline'): Result<Proposal> {
+  /** Counterparty responds. Decline ends the proposal; accept creates the exchange (auto-pause + holds). */
+  function respond(
+    userId: string,
+    id: string,
+    decision: 'accept' | 'decline',
+  ): Result<Proposal | { proposal: Proposal; exchange: Exchange }> {
     const p = store.getProposal(id);
     if (!p) return fail([{ code: 'not-found', message: 'Proposal not found.' }]);
     if (p.status !== 'Proposed') {
@@ -153,10 +158,75 @@ export function createExchangesService(
         { code: 'not-permitted', message: 'Only the counterparty can respond to this proposal.' },
       ]);
     }
-    p.status = 'Declined';
+    if (decision === 'decline') {
+      p.status = 'Declined';
+      p.decidedAtMs = now();
+      store.saveProposal(p);
+      return ok(p);
+    }
+    return accept(p);
+  }
+
+  /**
+   * Accept: first acceptance auto-pauses referenced listings (D7 rev.1) and
+   * freezes terms. Remaining pendings go read-only until reopen/decline.
+   */
+  function accept(p: Proposal): Result<{ proposal: Proposal; exchange: Exchange }> {
+    const listingIds = [...p.sideAListingIds, ...p.sideBListingIds];
+    for (const lid of listingIds) {
+      if (isHeld(lid)) {
+        return fail([
+          {
+            code: 'listing-paused',
+            message:
+              'This listing was auto-paused by an accepted exchange and is not accepting ' +
+              'new commitments until the owner reopens it.',
+          },
+        ]);
+      }
+      const l = deps.listings.get(lid);
+      if (!l || l.status !== 'Active') {
+        return fail([
+          { code: 'listing-not-active', message: 'All referenced listings must be Active to accept.' },
+        ]);
+      }
+    }
+
+    const exchange = store.insertExchange({
+      proposalId: p.id,
+      participantA: p.proposerId,
+      participantB: p.counterpartyId,
+      listingIds,
+      terms: p.terms,
+      status: 'Scheduled',
+      log: [`accepted at ${new Date(now()).toISOString()}`],
+      createdAtMs: now(),
+    });
+    for (const lid of listingIds) {
+      deps.listings.systemPause(lid);
+      store.hold(lid, exchange.id);
+    }
+    p.status = 'Accepted';
     p.decidedAtMs = now();
+    p.exchangeId = exchange.id;
     store.saveProposal(p);
-    return ok(p);
+    return ok({ proposal: p, exchange });
+  }
+
+  /**
+   * True while a listing is held by an unresolved accepted exchange.
+   * Lazy release: owner reopen (Active) or exchange resolution clears the hold.
+   */
+  function isHeld(listingId: string): boolean {
+    const exchangeId = store.heldBy(listingId);
+    if (!exchangeId) return false;
+    const exchange = store.getExchange(exchangeId);
+    const listing = deps.listings.get(listingId);
+    if (!exchange || exchange.status !== 'Scheduled' || !listing || listing.status !== 'Paused') {
+      store.release(listingId);
+      return false;
+    }
+    return true;
   }
 
   /** Withdrawal allowed any time before acceptance, by either side (FR-E-2). */

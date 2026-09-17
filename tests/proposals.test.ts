@@ -159,7 +159,7 @@ describe('proposals', () => {
     assert.equal(exchanges.respond(aid, p.value.id, 'decline').ok, false);
     const d = exchanges.respond(bid, p.value.id, 'decline');
     assert.equal(d.ok, true);
-    if (d.ok) assert.equal(d.value.status, 'Declined');
+    if (d.ok && 'status' in d.value) assert.equal(d.value.status, 'Declined');
   });
 
   it('proposals expire after 7 days via runExpiry', () => {
