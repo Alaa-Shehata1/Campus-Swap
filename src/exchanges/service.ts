@@ -1,4 +1,5 @@
 import { fail, ok, type Result } from '../common/errors.js';
+import { formatCairoTime } from '../common/cairoTime.js';
 import { ExchangesStore } from './store.js';
 import type {
   Exchange,
@@ -260,7 +261,70 @@ export function createExchangesService(
     return expired;
   }
 
-  return { propose, getProposal, respond, withdraw, runExpiry, lockStatus, openCount, store };
+  /** Schedule the meetup (FR-E-5): Cairo-labeled time + place + safety nudge. */
+  function schedule(
+    userId: string,
+    exchangeId: string,
+    input: ScheduleInput,
+  ): Result<{ exchange: Exchange; safetyNudge: string }> {
+    const e = store.getExchange(exchangeId);
+    if (!e) return fail([{ code: 'not-found', message: 'Exchange not found.' }]);
+    if (e.status !== 'Scheduled') {
+      return fail([
+        { code: 'invalid-transition', message: `Exchange is ${e.status}; only Scheduled exchanges can be scheduled.` },
+      ]);
+    }
+    if (userId !== e.participantA && userId !== e.participantB) {
+      return fail([
+        { code: 'not-participant', message: 'Only exchange participants can set the schedule.' },
+      ]);
+    }
+    const atMs = Date.parse(input.at);
+    if (Number.isNaN(atMs)) {
+      return fail([
+        { code: 'schedule-invalid', field: 'at', message: 'Provide a valid date and time.' },
+      ]);
+    }
+    if (atMs <= now()) {
+      return fail([
+        { code: 'schedule-past', field: 'at', message: 'The meeting time must be in the future.' },
+      ]);
+    }
+    const place = input.place?.trim() ?? '';
+    if (!place) {
+      return fail([{ code: 'required', field: 'place', message: 'Meeting place is required.' }]);
+    }
+    if (PRIVATE_PLACE_RE.test(place) && input.acknowledgedSafetyReminder !== true) {
+      return fail([
+        {
+          code: 'safety-ack-required',
+          field: 'place',
+          message:
+            'Private residences need an explicit safety acknowledgement. ' +
+            'Prefer a public on-campus spot, or acknowledge the safety reminder.',
+        },
+      ]);
+    }
+    e.schedule = { at: formatCairoTime(new Date(atMs).toISOString()), place };
+    e.log.push(`scheduled for ${e.schedule.at} at ${place}`);
+    store.saveExchange(e);
+    return ok({ exchange: e, safetyNudge: SAFETY_NUDGE });
+  }
+
+  return { propose, getProposal, respond, withdraw, runExpiry, lockStatus, openCount, schedule, store };
 }
+
+export interface ScheduleInput {
+  at: string;
+  place: string;
+  acknowledgedSafetyReminder?: boolean;
+}
+
+const PRIVATE_PLACE_RE = /\b(apartment|flat|house|home|room|residence|my place)\b/i;
+
+export const SAFETY_NUDGE =
+  'Safety: prefer a public on-campus spot (library hall, campus café) and tell a friend ' +
+  'where you are going. Private residences are allowed only by mutual agreement — ' +
+  'you accepted the safety reminder for a private place. See the full Terms.';
 
 export type ExchangesService = ReturnType<typeof createExchangesService>;
