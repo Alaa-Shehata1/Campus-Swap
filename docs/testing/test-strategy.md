@@ -39,7 +39,8 @@ module was implemented.
 | `tests/moderation.test.ts` | `moderation.report/triage/sanction/unhide/voidReview` | reason codes, other-needs-20, ≤3 images, Received→Under review→Resolved, hide/unhide lifecycle, suspend blocks login, audit fields (FR-M-1..4, BL-12/13) |
 | `tests/moderation.test.ts` (stolen) | `moderation.report/escalate` | hide-first + instant case, handover gated on owner approval, evidence preserved (FR-M-5, BL-13) |
 | `tests/notifications.test.ts` | `notifications.emit/inbox` + `lendReminderKind` | one unread item per emit, all 16 FR-N-1 types, zero emails (no transport), T-3d/T+0/T+3d/overdue (FR-N-1, BL-14) |
-| `tests/privacy.test.ts` | `privacy` + `moderation.viewThread` | 12/24-mo retention boundaries, deactivation hides discovery, case-gated thread reads denied+logged/allowed+logged (P-3/P-4) |
+| `tests/notifications-wiring.test.ts` | cross-module emits | proposal/schedule/completion notifications, no pre-reveal leak, reporter-only updates, void/unhide/handover notices |
+| `tests/privacy.test.ts` | `privacy` + `moderation.viewThread` | 12/24-mo retention boundaries, deactivation hides discovery, purpose-scoped thread reads denied+logged/allowed+logged (P-3/P-4) |
 
 ## Planned (later phases)
 

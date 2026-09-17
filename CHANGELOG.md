@@ -15,10 +15,14 @@
   deactivate (profile hidden, login blocked); exchanges internal
   readExchange/readThread for case-gated modules.
 - Notifications sink: in-app inbox for all 16 FR-N-1 event types, zero
-  emails; lend-reminder helper.
-- Privacy: 12-mo message / 24-mo log retention clocks, purpose-bound
-  moderator reads (denied + logged without open case).
-- 91 tests green (`npm test`), `tsc --noEmit` clean.
+  emails; lend-reminder helper. Domain events wired: proposals, schedule,
+  completion, reveal/response, report lifecycle, sanctions, voids, handovers.
+- Privacy: 12-mo message / 24-mo log retention clocks, purpose-scoped
+  moderator reads (open report on the exchange's listings/participants;
+  denied + logged otherwise).
+- Moderator-role guards on all triage/sanction/handover powers; sessions
+  revoked on restrict/deactivate; handover needs a second-moderator approver.
+- 101 tests green (`npm test`), `tsc --noEmit` clean.
 
 ## 2026-09-17 — Phase 2: Proposals + Exchange + Scheduling + Completion (BL-07..BL-10)
 
