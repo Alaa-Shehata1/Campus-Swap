@@ -206,11 +206,12 @@ export function createIdentityService(store = new IdentityStore()) {
     return userId;
   }
 
+  /** Session check for authenticated mutations (S-1): any active account holder acts, including moderators. */
   function authorizeMemberSession(token: unknown): Result<string> {
     const userId = resolveSession(token);
     if (!userId) return fail([{ code: 'login-required', message: 'A valid member session is required.' }]);
     const user = store.findById(userId);
-    if (!user || user.role !== 'member') {
+    if (!user || (user.role !== 'member' && user.role !== 'moderator')) {
       return fail([{ code: 'not-permitted', message: 'Only member sessions can perform this action.' }]);
     }
     return ok(userId);
