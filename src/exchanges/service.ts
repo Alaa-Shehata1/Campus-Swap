@@ -477,6 +477,18 @@ export function createExchangesService(
     return e;
   }
 
+  /**
+   * INTERNAL accessors for case-gated modules (reputation, moderation).
+   * No authz here — callers must enforce their own gates (privacy case access).
+   */
+  function readExchange(id: string): Exchange | undefined {
+    return store.getExchange(id);
+  }
+
+  function readThread(exchangeId: string): Message[] {
+    return store.messagesFor(exchangeId);
+  }
+
   /** Participant-only plain-text thread (FR-E-7). No files in MVP. */
   function postMessage(senderId: string, exchangeId: string, text: string): Result<Message> {
     const e = store.getExchange(exchangeId);
@@ -520,7 +532,7 @@ export function createExchangesService(
     return ok(store.messagesFor(exchangeId));
   }
 
-  return { propose, getProposal, respond, withdraw, runExpiry, lockStatus, openCount, schedule, markDone, confirm, dispute, runAutoComplete, cancel, getExchange, postMessage, getMessages, store };
+  return { propose, getProposal, respond, withdraw, runExpiry, lockStatus, openCount, schedule, markDone, confirm, dispute, runAutoComplete, cancel, getExchange, readExchange, readThread, postMessage, getMessages, store };
 }
 
 const CANCEL_REASONS: CancelReason[] = ['no-show', 'conflict', 'item-unavailable', 'safety-concern', 'other'];
