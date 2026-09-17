@@ -99,4 +99,23 @@ describe('discovery', () => {
     assert.ok(detail);
     assert.equal(detail!.loginCTA, false);
   });
+
+  it('non-Active detail is hidden from visitors and non-owners', () => {
+    const svc = createListingsService();
+    const draft = svc.publish('u1', {
+      side: 'offer',
+      kind: 'skill',
+      title: 'Hidden draft',
+      description: 'Not yet visible.',
+      category: 'tutoring',
+      zone: 'North campus',
+      images: [],
+      status: 'Draft',
+    });
+    assert.equal(draft.ok, true);
+    if (!draft.ok) return;
+    assert.equal(getDetail(svc.store, draft.value.id, ANON), undefined);
+    assert.equal(getDetail(svc.store, draft.value.id, { userId: 'u2' }), undefined);
+    assert.ok(getDetail(svc.store, draft.value.id, { userId: 'u1' }));
+  });
 });

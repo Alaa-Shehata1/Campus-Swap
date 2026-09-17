@@ -1,7 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import type { Listing } from './types.js';
 
-/** In-memory listing store. Repository seam: swap for MySQL (ADR-0002) without touching the service. */
+function clone(l: Listing): Listing {
+  return { ...l, images: [...l.images] };
+}
+
 export class ListingsStore {
   private items = new Map<string, Listing>();
   private order: string[] = [];
@@ -18,15 +21,16 @@ export class ListingsStore {
   }
 
   get(id: string): Listing | undefined {
-    return this.items.get(id);
+    const item = this.items.get(id);
+    return item ? clone(item) : undefined;
   }
 
   save(listing: Listing): void {
-    this.items.set(listing.id, listing);
+    this.items.set(listing.id, clone(listing));
   }
 
   all(): Listing[] {
-    return this.order.map((id) => this.items.get(id)!).filter(Boolean);
+    return this.order.map((id) => this.items.get(id)!).filter(Boolean).map(clone);
   }
 
   countActiveByOwner(ownerId: string): number {

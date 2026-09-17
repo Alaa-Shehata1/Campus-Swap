@@ -42,13 +42,14 @@ export class IdentityStore {
   }
 
   findByEmail(email: string): StoredUser | undefined {
-    return this.emailToId.get(email.toLowerCase())
-      ? this.byId.get(this.emailToId.get(email.toLowerCase())!)
-      : undefined;
+    const id = this.emailToId.get(email.toLowerCase());
+    const user = id ? this.byId.get(id) : undefined;
+    return user ? { ...user } : undefined;
   }
 
   findById(id: string): StoredUser | undefined {
-    return this.byId.get(id);
+    const user = this.byId.get(id);
+    return user ? { ...user } : undefined;
   }
 
   verifyPassword(user: StoredUser, password: string): boolean {

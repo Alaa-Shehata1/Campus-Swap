@@ -76,6 +76,10 @@ export function getDetail(
 ): DetailResult | undefined {
   const listing = store.get(id);
   if (!listing) return undefined;
+  // Only Active listings are publicly discoverable; owners may preview their own.
+  if (listing.status !== 'Active' && (isAnon(viewer) || viewer.userId !== listing.ownerId)) {
+    return undefined;
+  }
 
   const related = new Set<string>([listing.category, ...(RELATED[listing.category] ?? [])]);
   const compatible = store

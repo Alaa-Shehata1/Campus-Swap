@@ -5,6 +5,8 @@ import type { ProfilePatch, RegisterInput, Session, UserPublic } from './types.j
 
 export const DEFAULT_CAMPUS = 'KFS University';
 export const MAX_BIO_LENGTH = 500;
+/** Bounds scrypt input (DoS surface); longer passwords are rejected, not truncated. */
+export const MAX_PASSWORD_LENGTH = 256;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -35,6 +37,12 @@ export function createIdentityService(store = new IdentityStore()) {
         code: 'too-short',
         field: 'password',
         message: 'Password must be at least 8 characters.',
+      });
+    } else if (input.password.length > MAX_PASSWORD_LENGTH) {
+      errors.push({
+        code: 'too-long',
+        field: 'password',
+        message: `Password must be at most ${MAX_PASSWORD_LENGTH} characters.`,
       });
     }
     if (!input.displayName?.trim()) {
@@ -79,9 +87,12 @@ export function createIdentityService(store = new IdentityStore()) {
     return ok(toPublic(user));
   }
 
-  function authenticate(email: string, password: string): Result<Session> {
+  function authenticate(email: unknown, password: unknown): Result<Session> {
+    if (typeof email !== 'string' || typeof password !== 'string') {
+      return fail([{ code: 'invalid-credentials', message: 'Email or password is incorrect.' }]);
+    }
     const user = store.findByEmail(email.trim());
-    if (!user || !store.verifyPassword(user, password)) {
+    if (!user || password.length > MAX_PASSWORD_LENGTH || !store.verifyPassword(user, password)) {
       return fail([{ code: 'invalid-credentials', message: 'Email or password is incorrect.' }]);
     }
     const token = randomUUID();
@@ -123,7 +134,16 @@ export function createIdentityService(store = new IdentityStore()) {
     return ok(toPublic(user));
   }
 
-  return { register, authenticate, getProfile, updateProfile };
+  /** Resolve a session token to its owner. HTTP layer must bind this to mutations (S-1/S-2). */
+  function resolveSession(token: string): string | undefined {
+    return sessions.get(token);
+  }
+
+  function logout(token: string): void {
+    sessions.delete(token);
+  }
+
+  return { register, authenticate, resolveSession, logout, getProfile, updateProfile };
 }
 
 export type IdentityService = ReturnType<typeof createIdentityService>;

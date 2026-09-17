@@ -72,4 +72,22 @@ describe('identity', () => {
     assert.equal(r.ok, true);
     if (r.ok) assert.equal(r.value.campusVerified, false);
   });
+
+  it('sessions resolve to owner and logout revokes', () => {
+    const svc = createIdentityService();
+    svc.register({ ...BASE, email: 's@gmail.com' });
+    const auth = svc.authenticate('s@gmail.com', 'password1');
+    assert.equal(auth.ok, true);
+    if (!auth.ok) return;
+    assert.equal(svc.resolveSession(auth.value.token), auth.value.userId);
+    svc.logout(auth.value.token);
+    assert.equal(svc.resolveSession(auth.value.token), undefined);
+  });
+
+  it('rejects non-string credentials and over-long passwords safely', () => {
+    const svc = createIdentityService();
+    svc.register({ ...BASE, email: 'e@gmail.com' });
+    assert.equal(svc.authenticate(undefined as unknown as string, 'password1').ok, false);
+    assert.equal(svc.authenticate('e@gmail.com', 'x'.repeat(300)).ok, false);
+  });
 });

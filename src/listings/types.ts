@@ -39,4 +39,4 @@ export interface Listing {
   createdAt: string;
 }
 
-export type ListingTransition = 'pause' | 'archive' | 'reopen';
+export type ListingTransition = 'activate' | 'pause' | 'archive' | 'reopen';

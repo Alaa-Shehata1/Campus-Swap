@@ -164,4 +164,82 @@ describe('listings', () => {
     assert.equal(r.ok, false);
     if (!r.ok) assert.ok(r.errors.some((e) => e.code === 'prohibited'));
   });
+
+  it('activates Draft -> Active so drafts become discoverable', () => {
+    const svc = createListingsService();
+    const draft = svc.publish('u1', {
+      side: 'offer',
+      kind: 'skill',
+      title: 'Draft lesson',
+      description: 'Becomes active.',
+      category: 'tutoring',
+      zone: 'North campus',
+      images: [],
+      status: 'Draft',
+    });
+    assert.equal(draft.ok, true);
+    if (!draft.ok) return;
+    const activated = svc.transition('u1', draft.value.id, 'activate');
+    assert.equal(activated.ok, true);
+    if (activated.ok) assert.equal(activated.value.status, 'Active');
+  });
+
+  it('rejected prohibited update leaves stored listing unchanged', () => {
+    const svc = createListingsService();
+    const created = svc.publish('u1', {
+      side: 'offer',
+      kind: 'skill',
+      title: 'Python tutoring',
+      description: 'I teach Python basics.',
+      category: 'tutoring',
+      zone: 'North campus',
+      images: [],
+    });
+    assert.equal(created.ok, true);
+    if (!created.ok) return;
+    const bad = svc.update('u1', created.value.id, { title: 'stolen iphone no questions asked' });
+    assert.equal(bad.ok, false);
+    const stored = svc.get(created.value.id);
+    assert.equal(stored?.title, 'Python tutoring');
+  });
+
+  it('rejects invalid status on publish', () => {
+    const svc = createListingsService();
+    const r = svc.publish('u1', {
+      side: 'offer',
+      kind: 'skill',
+      title: 'Weird status',
+      description: 'Status is not in the lifecycle.',
+      category: 'tutoring',
+      zone: 'North campus',
+      images: [],
+      // @ts-expect-error runtime-only invalid status
+      status: 'Ghost',
+    });
+    assert.equal(r.ok, false);
+    if (!r.ok) assert.ok(r.errors.some((e) => e.field === 'status'));
+  });
+
+  it('edits category/zone/images on update with validation', () => {
+    const svc = createListingsService();
+    const created = svc.publish('u1', {
+      side: 'offer',
+      kind: 'skill',
+      title: 'Python tutoring',
+      description: 'I teach Python basics.',
+      category: 'tutoring',
+      zone: 'North campus',
+      images: [],
+    });
+    assert.equal(created.ok, true);
+    if (!created.ok) return;
+    const updated = svc.update('u1', created.value.id, { zone: 'Library', category: 'programming' });
+    assert.equal(updated.ok, true);
+    if (updated.ok) {
+      assert.equal(updated.value.zone, 'Library');
+      assert.equal(updated.value.category, 'programming');
+    }
+    const badCat = svc.update('u1', created.value.id, { category: 'nope' });
+    assert.equal(badCat.ok, false);
+  });
 });
