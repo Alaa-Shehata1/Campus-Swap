@@ -111,4 +111,28 @@ describe('identity', () => {
     assert.equal(svc.isBlockedOrMuted(aid, bid), false);
     assert.throws(() => svc.block(aid, aid), /cannot block yourself/i);
   });
+
+  it('restrict suspends/bans: login blocked, badge shown', () => {
+    const svc = createIdentityService();
+    const r = svc.register({ ...BASE, email: 'r@gmail.com' });
+    assert.equal(r.ok, true);
+    if (!r.ok) return;
+    svc.restrict(r.value.id, 'suspended');
+    assert.equal(svc.getProfile(r.value.id)?.restriction, 'suspended');
+    const login = svc.authenticate('r@gmail.com', 'password1');
+    assert.equal(login.ok, false);
+    if (!login.ok) assert.ok(login.errors.some((e) => e.code === 'account-suspended'));
+    svc.restrict(r.value.id, 'none');
+    assert.equal(svc.authenticate('r@gmail.com', 'password1').ok, true);
+  });
+
+  it('deactivate hides profile and blocks login immediately', () => {
+    const svc = createIdentityService();
+    const r = svc.register({ ...BASE, email: 'd@gmail.com' });
+    assert.equal(r.ok, true);
+    if (!r.ok) return;
+    svc.deactivate(r.value.id);
+    assert.equal(svc.getProfile(r.value.id), undefined);
+    assert.equal(svc.authenticate('d@gmail.com', 'password1').ok, false);
+  });
 });

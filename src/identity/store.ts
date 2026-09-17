@@ -1,10 +1,11 @@
 import { randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
-import type { Role, UserPublic } from './types.js';
+import type { Restriction, Role, UserPublic } from './types.js';
 
 export interface StoredUser extends UserPublic {
   email: string;
   passwordHash: string;
   passwordSalt: string;
+  deactivated: boolean;
 }
 
 function hashPassword(password: string, salt: string): string {
@@ -35,6 +36,8 @@ export class IdentityStore {
       joinDate: new Date().toISOString(),
       completedExchangeCount: 0,
       role: data.role ?? 'member',
+      restriction: 'none' as Restriction,
+      deactivated: false,
     };
     this.byId.set(user.id, user);
     this.emailToId.set(user.email, user.id);
