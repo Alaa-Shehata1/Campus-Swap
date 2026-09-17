@@ -8,7 +8,7 @@ import type { ReputationService } from '../reputation/service.js';
 export const SNAPSHOT_VERSION = 1;
 
 export interface WorldDeps {
-  identity: Pick<IdentityService, 'store'>;
+  identity: Pick<IdentityService, 'exportUsers' | 'importUsers'>;
   listings: Pick<ListingsService, 'store'>;
   exchanges: Pick<ExchangesService, 'store'>;
   reputation: Pick<ReputationService, 'store'>;
@@ -20,7 +20,7 @@ export interface Snapshot {
   version: number;
   takenAtMs: number;
   state: {
-    identity: ReturnType<WorldDeps['identity']['store']['exportState']>;
+    identity: ReturnType<WorldDeps['identity']['exportUsers']>;
     listings: ReturnType<WorldDeps['listings']['store']['exportState']>;
     exchanges: ReturnType<WorldDeps['exchanges']['store']['exportState']>;
     reputation: ReturnType<WorldDeps['reputation']['store']['exportState']>;
@@ -40,7 +40,7 @@ export function createSnapshot(deps: WorldDeps, nowMs = Date.now()): Snapshot {
     version: SNAPSHOT_VERSION,
     takenAtMs: nowMs,
     state: {
-      identity: deps.identity.store.exportState(),
+      identity: deps.identity.exportUsers(),
       listings: deps.listings.store.exportState(),
       exchanges: deps.exchanges.store.exportState(),
       reputation: deps.reputation.store.exportState(),
@@ -55,7 +55,22 @@ export function restoreSnapshot(deps: WorldDeps, snap: Snapshot): void {
   if (!snap || snap.version !== SNAPSHOT_VERSION) {
     throw new Error(`Unsupported snapshot version: ${snap?.version}.`);
   }
-  deps.identity.store.importState(snap.state.identity);
+  const s = snap.state;
+  const problems: string[] = [];
+  if (!s || !Array.isArray(s.identity?.users)) problems.push('identity.users');
+  if (!Array.isArray(s?.listings?.items) || !Array.isArray(s?.listings?.order)) {
+    problems.push('listings.items/order');
+  }
+  if (!Array.isArray(s?.exchanges?.proposals) || !Array.isArray(s?.exchanges?.exchanges)) {
+    problems.push('exchanges.proposals/exchanges');
+  }
+  if (!Array.isArray(s?.reputation)) problems.push('reputation');
+  if (!Array.isArray(s?.moderation?.reports)) problems.push('moderation.reports');
+  if (!Array.isArray(s?.notifications)) problems.push('notifications');
+  if (problems.length > 0) {
+    throw new Error(`Invalid snapshot state: missing ${problems.join(', ')}.`);
+  }
+  deps.identity.importUsers(snap.state.identity);
   deps.listings.store.importState(snap.state.listings);
   deps.exchanges.store.importState(snap.state.exchanges);
   deps.reputation.store.importState(snap.state.reputation);

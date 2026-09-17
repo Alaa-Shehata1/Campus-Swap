@@ -10,7 +10,6 @@ import { createReputationService } from '../src/reputation/service.js';
 import { createModerationService } from '../src/moderation/service.js';
 import { createNotificationsService } from '../src/notifications/service.js';
 import { computePilotMetrics } from '../src/metrics/service.js';
-
 describe('launch audits', () => {
   it('disclaimers present on all 5 flows with terms link and plain language', () => {
     const findings = disclaimerAudit();
@@ -35,7 +34,7 @@ describe('launch audits', () => {
     const healthy = healthCheck({ identity, listings, exchanges, reputation, moderation, notifications });
     assert.equal(healthy.status, 'ok');
     const broken = healthCheck({
-      identity: { store: { stats: () => { throw new Error('db down'); } } },
+      identity: { userStats: () => { throw new Error('db down'); } },
       listings, exchanges, reputation, moderation, notifications,
     });
     assert.equal(broken.status, 'degraded');
@@ -50,7 +49,9 @@ describe('launch gate', () => {
     const exchanges = createExchangesService({ listings, identity });
     const reputation = createReputationService({ exchanges });
     const moderation = createModerationService({ listings, identity, reputation });
-    return { identity, listings, exchanges, reputation, moderation };
+    const notifications = createNotificationsService();
+    const deps = { identity, listings, exchanges, reputation, moderation, notifications };
+    return { deps, metrics: computePilotMetrics(deps), health: healthCheck(deps) };
   }
 
   const attestations = {
@@ -64,9 +65,9 @@ describe('launch gate', () => {
 
   it('fails with everything unattested and names each gap', () => {
     const w = world();
-    const metrics = computePilotMetrics(w);
     const gate = evaluateLaunchGate({
-      metrics,
+      metrics: w.metrics,
+      health: w.health,
       moderatorCount: 0,
       attestations: {
         termsSignedOff: false,
@@ -85,15 +86,26 @@ describe('launch gate', () => {
 
   it('passes when automated checks hold and humans attest', () => {
     const w = world();
-    const metrics = computePilotMetrics(w);
-    const gate = evaluateLaunchGate({ metrics, moderatorCount: 2, attestations });
+    const gate = evaluateLaunchGate({
+      metrics: w.metrics, health: w.health, moderatorCount: 2, attestations,
+    });
     assert.equal(gate.pass, true, gate.failures.join('; '));
   });
 
   it('requires 2 moderators even when everything else passes', () => {
     const w = world();
-    const metrics = computePilotMetrics(w);
-    const gate = evaluateLaunchGate({ metrics, moderatorCount: 1, attestations });
+    const gate = evaluateLaunchGate({
+      metrics: w.metrics, health: w.health, moderatorCount: 1, attestations,
+    });
     assert.equal(gate.pass, false);
+  });
+
+  it('fails when health is degraded or missing', () => {
+    const w = world();
+    const degraded = evaluateLaunchGate({
+      metrics: w.metrics, health: null, moderatorCount: 2, attestations,
+    });
+    assert.equal(degraded.pass, false);
+    assert.ok(degraded.failures.some((f) => /health/i.test(f)));
   });
 });

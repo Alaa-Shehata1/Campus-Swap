@@ -42,7 +42,7 @@ export class ListingsStore {
     const counts: Record<Listing['status'], number> = {
       Draft: 0, Active: 0, Paused: 0, Archived: 0, Hidden: 0,
     };
-    for (const l of this.all()) counts[l.status] += 1;
+    for (const l of this.all()) counts[l.status] = (counts[l.status] ?? 0) + 1;
     return counts;
   }
 
@@ -57,6 +57,12 @@ export class ListingsStore {
     this.items.clear();
     this.order = [];
     for (const l of state.items) this.items.set(l.id, clone(l));
-    this.order = [...state.order];
+    // Rebuild order from surviving ids only, then append any missing —
+    // a stale order list must never silently drop listings.
+    const known = new Set(state.items.map((l) => l.id));
+    this.order = [...state.order.filter((id) => known.has(id))];
+    for (const l of state.items) {
+      if (!this.order.includes(l.id)) this.order.push(l.id);
+    }
   }
 }

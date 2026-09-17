@@ -151,7 +151,7 @@ export class ExchangesStore {
     const counts: Record<ExchangeStatus, number> = {
       Scheduled: 0, Completed: 0, Cancelled: 0, Disputed: 0,
     };
-    for (const e of this.exchanges.values()) counts[e.status] += 1;
+    for (const e of this.exchanges.values()) counts[e.status] = (counts[e.status] ?? 0) + 1;
     return counts;
   }
 
@@ -159,7 +159,7 @@ export class ExchangesStore {
     const counts: Record<ProposalStatus, number> = {
       Proposed: 0, Accepted: 0, Declined: 0, Expired: 0, Withdrawn: 0,
     };
-    for (const p of this.proposals.values()) counts[p.status] += 1;
+    for (const p of this.proposals.values()) counts[p.status] = (counts[p.status] ?? 0) + 1;
     return counts;
   }
 }

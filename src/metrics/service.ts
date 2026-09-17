@@ -14,7 +14,7 @@ export const D12_TARGETS = {
 } as const;
 
 export interface MetricsDeps {
-  identity: Pick<IdentityService, 'store'>;
+  identity: Pick<IdentityService, 'userStats'>;
   listings: Pick<ListingsService, 'store'>;
   exchanges: Pick<ExchangesService, 'store'>;
   moderation: Pick<ModerationService, 'store'>;
@@ -23,7 +23,7 @@ export interface MetricsDeps {
 
 /** Product metrics dashboard input (NFR-O-1): members, listings, completions, triage, incidents. */
 export function computePilotMetrics(deps: MetricsDeps, nowMs = Date.now()): PilotMetrics {
-  const users = deps.identity.store.stats();
+  const users = deps.identity.userStats();
   const listings = deps.listings.store.countByStatus();
   const exchanges = deps.exchanges.store.exchangeStats();
   const reports = deps.moderation.store.allReports();
@@ -59,6 +59,7 @@ export function computePilotMetrics(deps: MetricsDeps, nowMs = Date.now()): Pilo
     moderators: users.moderators,
     listings: listings.Draft + listings.Active + listings.Paused + listings.Archived + listings.Hidden,
     activeListings: listings.Active,
+    publishedListings: listings.Active + listings.Paused,
     completedExchanges: exchanges.Completed,
     reportsReceived: received,
     reportsUnderReview: underReview,
@@ -77,18 +78,23 @@ function progress(actual: number, target: number): TargetProgress {
 
 /** D12 progress check. Triage passes only with resolved reports inside the SLA. */
 export function pilotProgress(m: PilotMetrics): PilotProgress {
+  const triageMet =
+    m.medianTriageMs !== null &&
+    m.reportsResolved > 0 &&
+    m.medianTriageMs <= D12_TARGETS.triageMs;
   return {
-    members: progress(m.members, D12_TARGETS.members),
-    listings: progress(m.listings, D12_TARGETS.listings),
+    members: progress(m.activeMembers, D12_TARGETS.members),
+    listings: progress(m.publishedListings, D12_TARGETS.listings),
     completions: progress(m.completedExchanges, D12_TARGETS.completions),
     triage: {
-      met:
-        m.medianTriageMs !== null &&
-        m.reportsResolved > 0 &&
-        m.medianTriageMs <= D12_TARGETS.triageMs,
+      met: triageMet,
       actual: m.medianTriageMs ?? Number.POSITIVE_INFINITY,
       target: D12_TARGETS.triageMs,
-      remaining: 0,
+      remaining: triageMet
+        ? 0
+        : m.medianTriageMs === null
+          ? D12_TARGETS.triageMs
+          : Math.max(0, m.medianTriageMs - D12_TARGETS.triageMs),
     },
   };
 }

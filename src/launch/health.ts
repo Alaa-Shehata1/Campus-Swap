@@ -1,5 +1,5 @@
 export interface HealthDeps {
-  identity: { store: { stats(): unknown } };
+  identity: { userStats(): unknown };
   listings: { store: { countByStatus(): unknown } };
   exchanges: { store: { exchangeStats(): unknown } };
   reputation: { store: { counts(): unknown } };
@@ -17,7 +17,7 @@ export interface HealthReport {
 export function healthCheck(deps: HealthDeps, nowMs = Date.now()): HealthReport {
   const checks: Record<string, 'ok' | 'fail'> = {};
   const probes: Record<string, () => unknown> = {
-    identity: () => deps.identity.store.stats(),
+    identity: () => deps.identity.userStats(),
     listings: () => deps.listings.store.countByStatus(),
     exchanges: () => deps.exchanges.store.exchangeStats(),
     reputation: () => deps.reputation.store.counts(),

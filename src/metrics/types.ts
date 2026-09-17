@@ -4,6 +4,8 @@ export interface PilotMetrics {
   moderators: number;
   listings: number;
   activeListings: number;
+  /** Owner-published and not removed: Active + Paused (D12 "published listings"). */
+  publishedListings: number;
   completedExchanges: number;
   reportsReceived: number;
   reportsUnderReview: number;

@@ -87,4 +87,21 @@ describe('snapshot', () => {
       /unsupported snapshot version/i,
     );
   });
+
+  it('rejects truncated snapshots with a snapshot error', () => {
+    const dst = fresh();
+    assert.throws(
+      () => restoreSnapshot(dst, { version: 1, takenAtMs: 0, state: {} } as never),
+      /invalid snapshot state/i,
+    );
+  });
+
+  it('block/mute pairs survive restore (sessions do not)', () => {
+    const src = world();
+    src.identity.block(src.aid, src.bid);
+    const snap = createSnapshot(src);
+    const dst = fresh();
+    restoreSnapshot(dst, snap);
+    assert.equal(dst.identity.isBlockedOrMuted(src.aid, src.bid), true);
+  });
 });

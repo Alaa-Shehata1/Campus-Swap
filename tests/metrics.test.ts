@@ -62,6 +62,7 @@ describe('metrics', () => {
     assert.equal(m.activeMembers, 3);
     assert.equal(m.listings, 2);
     assert.equal(m.activeListings, 0); // auto-paused on accept
+    assert.equal(m.publishedListings, 2); // paused still counts as published
     assert.equal(m.completedExchanges, 1);
     assert.equal(m.reportsReceived, 0);
     assert.equal(m.reportsUnderReview, 0);
@@ -83,15 +84,16 @@ describe('metrics', () => {
     });
     const p = pilotProgress(m);
     assert.equal(p.members.met, false);
-    assert.equal(p.members.remaining, D12_TARGETS.members - m.members);
+    assert.equal(p.members.remaining, D12_TARGETS.members - m.activeMembers);
     assert.equal(p.completions.met, false);
     assert.equal(p.triage.met, false); // 50h > 48h
+    assert.equal(p.triage.remaining, 2 * 60 * 60 * 1000);
   });
 
   it('pilot progress passes when D12 targets are met', () => {
     const p = pilotProgress({
       members: 200, activeMembers: 200, moderators: 2,
-      listings: 150, activeListings: 150, completedExchanges: 30,
+      listings: 150, activeListings: 150, publishedListings: 150, completedExchanges: 30,
       reportsReceived: 0, reportsUnderReview: 0, reportsResolved: 5,
       medianTriageMs: 10 * 60 * 60 * 1000, sanctions: 1, handovers: 0,
       reviewsPublished: 60, generatedAtMs: Date.now(),

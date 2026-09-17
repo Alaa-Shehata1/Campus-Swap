@@ -1,4 +1,5 @@
 import { disclaimerAudit, cairoLabelAudit } from './audits.js';
+import type { HealthReport } from './health.js';
 import type { PilotMetrics } from '../metrics/types.js';
 
 /**
@@ -20,6 +21,8 @@ export interface LaunchAttestations {
 export interface LaunchGateInput {
   /** Null = metrics instrumentation not live. */
   metrics: PilotMetrics | null;
+  /** Null = health check not run. */
+  health: HealthReport | null;
   moderatorCount: number;
   attestations: LaunchAttestations;
 }
@@ -41,6 +44,9 @@ export function evaluateLaunchGate(input: LaunchGateInput): LaunchGateResult {
 
   if (!input.metrics) {
     failures.push('metrics instrumentation not live (NFR-O-1)');
+  }
+  if (!input.health || input.health.status !== 'ok') {
+    failures.push('health check not green on every seam (NFR-A-1, §10.4)');
   }
   if (input.moderatorCount < 2) {
     failures.push(`need 2 named moderators, have ${input.moderatorCount} (D14)`);
