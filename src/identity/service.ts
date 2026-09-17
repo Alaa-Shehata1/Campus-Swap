@@ -255,6 +255,7 @@ export function createIdentityService(store = new IdentityStore()) {
     restrict,
     deactivate,
     setRole,
+    store,
   };
 }
 

@@ -36,4 +36,13 @@ export class ListingsStore {
   countActiveByOwner(ownerId: string): number {
     return this.all().filter((l) => l.ownerId === ownerId && l.status === 'Active').length;
   }
+
+  /** Listings per lifecycle state for pilot metrics (NFR-O-1). */
+  countByStatus(): Record<Listing['status'], number> {
+    const counts: Record<Listing['status'], number> = {
+      Draft: 0, Active: 0, Paused: 0, Archived: 0, Hidden: 0,
+    };
+    for (const l of this.all()) counts[l.status] += 1;
+    return counts;
+  }
 }

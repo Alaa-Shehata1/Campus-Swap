@@ -21,6 +21,11 @@ export class ModerationStore {
     return r ? structuredClone(r) : undefined;
   }
 
+  /** All reports for metrics (triage latency) and audits. */
+  allReports(): Report[] {
+    return [...this.reports.values()].map((r) => structuredClone(r));
+  }
+
   saveReport(r: Report): void {
     this.reports.set(r.id, structuredClone(r));
   }

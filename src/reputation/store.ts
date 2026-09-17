@@ -44,6 +44,17 @@ export class ReputationStore {
     return out;
   }
 
+  /** Review counts for pilot metrics (NFR-O-1). */
+  counts(): { total: number; published: number } {
+    let total = 0;
+    let published = 0;
+    for (const r of this.items.values()) {
+      total += 1;
+      if (r.status === 'Published') published += 1;
+    }
+    return { total, published };
+  }
+
   exchangeIds(): string[] {
     const ids = new Set<string>();
     for (const r of this.items.values()) ids.add(r.exchangeId);

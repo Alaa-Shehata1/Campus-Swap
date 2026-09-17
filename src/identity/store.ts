@@ -62,6 +62,27 @@ export class IdentityStore {
     return false;
   }
 
+  /** Headline user stats for pilot metrics (NFR-O-1). */
+  stats(): {
+    total: number;
+    active: number;
+    deactivated: number;
+    suspended: number;
+    banned: number;
+    moderators: number;
+  } {
+    const s = { total: 0, active: 0, deactivated: 0, suspended: 0, banned: 0, moderators: 0 };
+    for (const u of this.byId.values()) {
+      s.total += 1;
+      if (u.deactivated) s.deactivated += 1;
+      else if (u.restriction === 'suspended') s.suspended += 1;
+      else if (u.restriction === 'banned') s.banned += 1;
+      else s.active += 1;
+      if (u.role === 'moderator') s.moderators += 1;
+    }
+    return s;
+  }
+
   verifyPassword(user: StoredUser, password: string): boolean {
     const attempt = scryptSync(password, user.passwordSalt, 64);
     const expected = Buffer.from(user.passwordHash, 'hex');
