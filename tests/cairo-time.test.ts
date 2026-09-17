@@ -8,6 +8,11 @@ describe('cairoTime', () => {
     assert.equal(formatCairoTime('2026-03-12T13:30:00.000Z'), '12 Mar 2026, 15:30 Cairo time');
   });
 
+  it('follows Cairo daylight saving in summer (UTC+3)', () => {
+    // 2026-07-12T13:30:00Z == 16:30 in Africa/Cairo (DST observed Apr–Oct)
+    assert.equal(formatCairoTime('2026-07-12T13:30:00.000Z'), '12 Jul 2026, 16:30 Cairo time');
+  });
+
   it('rejects invalid input', () => {
     assert.throws(() => formatCairoTime('not-a-date'), RangeError);
   });

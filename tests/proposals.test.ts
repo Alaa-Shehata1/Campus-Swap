@@ -93,7 +93,7 @@ describe('proposals', () => {
   });
 
   it('holds 5 open proposals; the 6th is rejected with proposal-cap-reached', () => {
-    const { listings, exchanges, aid, bid, request } = setup();
+    const { listings, exchanges, aid, request } = setup();
     for (let i = 0; i < 5; i++) {
       const extra = listings.publish(aid, {
         side: 'offer',
@@ -129,7 +129,6 @@ describe('proposals', () => {
     const lock = exchanges.lockStatus(request.id);
     assert.equal(lock.locked, true);
     assert.equal(lock.openCount, 5);
-    void bid;
   });
 
   it('withdrawal allowed pre-accept by either side; frees a cap slot', () => {
@@ -188,5 +187,44 @@ describe('proposals', () => {
     });
     assert.equal(r.ok, false);
     if (!r.ok) assert.ok(r.errors.some((e) => e.code === 'blocked'));
+  });
+
+  it('decline frees a cap slot', () => {
+    const { exchanges, aid, bid, offer, request } = setup();
+    const p = exchanges.propose(aid, {
+      sideAListingIds: [offer.id],
+      sideBListingIds: [request.id],
+      terms: 'Deal.',
+    });
+    assert.equal(p.ok, true);
+    if (!p.ok) return;
+    assert.equal(exchanges.lockStatus(request.id).openCount, 1);
+    assert.equal(exchanges.respond(bid, p.value.id, 'decline').ok, true);
+    assert.equal(exchanges.lockStatus(request.id).openCount, 0);
+  });
+
+  it('withdraw-after-accept and respond-after-expiry are rejected', () => {
+    const ctx = setup();
+    const p = ctx.exchanges.propose(ctx.aid, {
+      sideAListingIds: [ctx.offer.id],
+      sideBListingIds: [ctx.request.id],
+      terms: 'Deal.',
+    });
+    assert.equal(p.ok, true);
+    if (!p.ok) return;
+    assert.equal(ctx.exchanges.respond(ctx.bid, p.value.id, 'accept').ok, true);
+    assert.equal(ctx.exchanges.withdraw(ctx.aid, p.value.id).ok, false);
+
+    const ctx2 = setup();
+    const q = ctx2.exchanges.propose(ctx2.aid, {
+      sideAListingIds: [ctx2.offer.id],
+      sideBListingIds: [ctx2.request.id],
+      terms: 'Deal.',
+    });
+    assert.equal(q.ok, true);
+    if (!q.ok) return;
+    ctx2.setNow(ctx2.now() + 8 * DAY_MS);
+    ctx2.exchanges.runExpiry(ctx2.now());
+    assert.equal(ctx2.exchanges.respond(ctx2.bid, q.value.id, 'decline').ok, false);
   });
 });

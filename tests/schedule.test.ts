@@ -91,8 +91,7 @@ describe('schedule', () => {
     if (!noPlace.ok) assert.ok(noPlace.errors.some((e) => e.field === 'place'));
   });
 
-  it('private residence needs safety acknowledgement, then accepted', () => {
-    const { exchanges, aid, exchangeId, future } = setup();
+  it('private residence needs safety acknowledgement, then accepted', () => {    const { exchanges, aid, exchangeId, future } = setup();
     const unacked = exchanges.schedule(aid, exchangeId, {
       at: future, place: 'My apartment, Block C',
     });
@@ -102,5 +101,19 @@ describe('schedule', () => {
       at: future, place: 'My apartment, Block C', acknowledgedSafetyReminder: true,
     });
     assert.equal(acked.ok, true);
+  });
+
+  it('hostel counts as private; schedule frozen after Done-mark', () => {
+    const { exchanges, aid, bid, exchangeId, future } = setup();
+    const hostel = exchanges.schedule(aid, exchangeId, { at: future, place: 'Youth hostel downtown' });
+    assert.equal(hostel.ok, false);
+    if (!hostel.ok) assert.ok(hostel.errors.some((e) => e.code === 'safety-ack-required'));
+    assert.equal(
+      exchanges.schedule(aid, exchangeId, { at: future, place: 'KFS Library main hall' }).ok,
+      true,
+    );
+    assert.equal(exchanges.markDone(aid, exchangeId).ok, true);
+    const moved = exchanges.schedule(bid, exchangeId, { at: future, place: 'Campus café' });
+    assert.equal(moved.ok, false);
   });
 });

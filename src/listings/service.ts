@@ -298,6 +298,8 @@ export function createListingsService(store = new ListingsStore()) {
   /**
    * System auto-pause on proposal accept (arch §4: owner transitions plus
    * system auto-pause). No owner check — the system performs it, auditably.
+   * INTERNAL: never wire to a route without an owner check; HTTP layer must
+   * call transition() for user-initiated pauses.
    */
   function systemPause(id: string): Result<Listing> {
     const listing = store.get(id);

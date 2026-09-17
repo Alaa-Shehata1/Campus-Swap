@@ -163,12 +163,12 @@ export function createIdentityService(store = new IdentityStore()) {
   function mute(userId: string, mutedId: string): void {
     if (userId === mutedId) throw new Error('You cannot mute yourself.');
     muted.add(pairKey(userId, mutedId));
-  }
-
-  function unmute(userId: string, mutedId: string): void {
+  }  function unmute(userId: string, mutedId: string): void {
     muted.delete(pairKey(userId, mutedId));
   }
 
+  /** MVP decision: mute is enforced symmetrically like block (stops proposals/messages
+   * either direction). A directional mute is post-MVP. */
   function isBlockedOrMuted(a: string, b: string): boolean {
     return (
       blocked.has(pairKey(a, b)) ||

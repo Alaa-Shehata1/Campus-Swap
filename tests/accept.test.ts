@@ -80,6 +80,8 @@ describe('accept', () => {
     const blocked = exchanges.respond(ids['c'], p2.value.id, 'accept');
     assert.equal(blocked.ok, false);
     if (!blocked.ok) assert.ok(blocked.errors.some((e) => e.code === 'listing-paused'));
+    // failed accept is side-effect free: proposal stays Proposed, no exchange
+    assert.equal(exchanges.getProposal(ids['a'], p2.value.id)?.status, 'Proposed');
 
     const reopened = listings.transition(ids['a'], offer.id, 'reopen');
     assert.equal(reopened.ok, true);
@@ -99,6 +101,9 @@ describe('accept', () => {
     if (!acc.ok || !('exchange' in acc.value)) return;
     assert.equal(acc.value.proposal.terms, 'Original terms.');
     assert.equal(acc.value.exchange.terms, 'Original terms.');
-    assert.equal(exchanges.getProposal(p.value.id)?.terms, 'Original terms.');
+    assert.equal(exchanges.getProposal(ids['b'], p.value.id)?.terms, 'Original terms.');
+    // strangers cannot read the private negotiation
+    assert.equal(exchanges.getProposal('stranger', p.value.id), undefined);
+    assert.equal(exchanges.getExchange('stranger', acc.value.exchange.id), undefined);
   });
 });

@@ -63,7 +63,6 @@ export function createExchangesService(
       return fail([{ code: 'not-found', message: 'Proposer not found.' }]);
     }
 
-    const listingsA = [];
     for (const id of sideA) {
       const l = deps.listings.get(id);
       if (!l) return fail([{ code: 'not-found', message: `Listing not found: ${id}.` }]);
@@ -77,9 +76,7 @@ export function createExchangesService(
           { code: 'ownership', message: 'Your side must only reference your own listings.' },
         ]);
       }
-      listingsA.push(l);
     }
-    void listingsA;
 
     let counterparty: string | undefined;
     for (const id of sideB) {
@@ -139,8 +136,11 @@ export function createExchangesService(
     );
   }
 
-  function getProposal(id: string): Proposal | undefined {
-    return store.getProposal(id);
+  /** Participant-gated proposal read: negotiation terms stay between the two sides. */
+  function getProposal(viewerId: string, id: string): Proposal | undefined {
+    const p = store.getProposal(id);
+    if (!p || !isParticipant(p, viewerId)) return undefined;
+    return p;
   }
 
   /** Counterparty responds. Decline ends the proposal; accept creates the exchange (auto-pause + holds). */
@@ -279,6 +279,14 @@ export function createExchangesService(
     if (userId !== e.participantA && userId !== e.participantB) {
       return fail([
         { code: 'not-participant', message: 'Only exchange participants can set the schedule.' },
+      ]);
+    }
+    if (e.doneMarkedBy !== undefined) {
+      return fail([
+        {
+          code: 'invalid-transition',
+          message: 'The schedule cannot change after Done was marked.',
+        },
       ]);
     }
     const atMs = Date.parse(input.at);
@@ -462,8 +470,11 @@ export function createExchangesService(
     return ok(e);
   }
 
-  function getExchange(id: string): Exchange | undefined {
-    return store.getExchange(id);
+  /** Participant-gated exchange read: schedule and participants stay between the two sides. */
+  function getExchange(viewerId: string, id: string): Exchange | undefined {
+    const e = store.getExchange(id);
+    if (!e || !isParticipantOf(e, viewerId)) return undefined;
+    return e;
   }
 
   /** Participant-only plain-text thread (FR-E-7). No files in MVP. */
@@ -497,13 +508,16 @@ export function createExchangesService(
     return ok(store.insertMessage({ exchangeId, senderId, text: clean, createdAtMs: now() }));
   }
 
-  /** Participant-only read; throws for non-participants (no silent leaks). */
-  function getMessages(viewerId: string, exchangeId: string): Message[] {
+  /** Participant-only read in the shared Result shape (no silent leaks, no throws). */
+  function getMessages(viewerId: string, exchangeId: string): Result<Message[]> {
     const e = store.getExchange(exchangeId);
-    if (!e || !isParticipantOf(e, viewerId)) {
-      throw new Error('Not a participant of this exchange.');
+    if (!e) return fail([{ code: 'not-found', message: 'Exchange not found.' }]);
+    if (!isParticipantOf(e, viewerId)) {
+      return fail([
+        { code: 'not-participant', message: 'Only exchange participants can read messages.' },
+      ]);
     }
-    return store.messagesFor(exchangeId);
+    return ok(store.messagesFor(exchangeId));
   }
 
   return { propose, getProposal, respond, withdraw, runExpiry, lockStatus, openCount, schedule, markDone, confirm, dispute, runAutoComplete, cancel, getExchange, postMessage, getMessages, store };
@@ -521,7 +535,7 @@ export interface ScheduleInput {
   acknowledgedSafetyReminder?: boolean;
 }
 
-const PRIVATE_PLACE_RE = /\b(apartment|flat|house|home|room|residence|my place)\b/i;
+const PRIVATE_PLACE_RE = /\b(apartment|flat|house|home|room|dorm|hostel|residence|my place)\b/i;
 
 export const SAFETY_NUDGE =
   'Safety: prefer a public on-campus spot (library hall, campus café) and tell a friend ' +

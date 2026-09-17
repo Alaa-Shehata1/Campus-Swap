@@ -125,4 +125,15 @@ describe('completion', () => {
     assert.equal(exchanges.markDone('stranger', exchangeId).ok, false);
     assert.equal(exchanges.cancel('stranger', exchangeId, { reason: 'conflict' }).ok, false);
   });
+
+  it('double Done-mark and cancel-after-Completed are rejected', () => {
+    const { exchanges, aid, bid, exchangeId } = setup();
+    assert.equal(exchanges.markDone(aid, exchangeId).ok, true);
+    assert.equal(exchanges.markDone(bid, exchangeId).ok, false);
+    assert.equal(exchanges.confirm(bid, exchangeId).ok, true);
+    assert.equal(
+      exchanges.cancel(aid, exchangeId, { reason: 'conflict' }).ok,
+      false,
+    );
+  });
 });

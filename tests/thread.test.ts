@@ -53,8 +53,10 @@ describe('thread', () => {
     assert.equal(exchanges.postMessage(aid, exchangeId, 'See you at the library!').ok, true);
     assert.equal(exchanges.postMessage(bid, exchangeId, 'Bringing my laptop.').ok, true);
     const inbox = exchanges.getMessages(bid, exchangeId);
-    assert.equal(inbox.length, 2);
-    assert.equal(inbox[0]?.text, 'See you at the library!');
+    assert.equal(inbox.ok, true);
+    if (!inbox.ok) return;
+    assert.equal(inbox.value.length, 2);
+    assert.equal(inbox.value[0]?.text, 'See you at the library!');
   });
 
   it('non-participant cannot post or read', () => {
@@ -62,7 +64,9 @@ describe('thread', () => {
     const posted = exchanges.postMessage(cid, exchangeId, 'Let me in.');
     assert.equal(posted.ok, false);
     if (!posted.ok) assert.ok(posted.errors.some((e) => e.code === 'not-participant'));
-    assert.throws(() => exchanges.getMessages(cid, exchangeId), /not a participant/i);
+    const read = exchanges.getMessages(cid, exchangeId);
+    assert.equal(read.ok, false);
+    if (!read.ok) assert.ok(read.errors.some((e) => e.code === 'not-participant'));
   });
 
   it('blocked pair cannot message', () => {
