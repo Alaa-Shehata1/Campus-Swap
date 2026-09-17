@@ -295,11 +295,28 @@ export function createListingsService(store = new ListingsStore()) {
     return ok(listing);
   }
 
+  /**
+   * System auto-pause on proposal accept (arch §4: owner transitions plus
+   * system auto-pause). No owner check — the system performs it, auditably.
+   */
+  function systemPause(id: string): Result<Listing> {
+    const listing = store.get(id);
+    if (!listing) return fail([{ code: 'not-found', message: 'Listing not found.' }]);
+    if (listing.status !== 'Active') {
+      return fail([
+        { code: 'invalid-transition', field: 'status', message: 'Only Active listings can be paused.' },
+      ]);
+    }
+    listing.status = 'Paused';
+    store.save(listing);
+    return ok(listing);
+  }
+
   function get(id: string): Listing | undefined {
     return store.get(id);
   }
 
-  return { publish, update, transition, get, store };
+  return { publish, update, transition, systemPause, get, store };
 }
 
 export type ListingsService = ReturnType<typeof createListingsService>;
