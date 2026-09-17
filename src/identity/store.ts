@@ -92,4 +92,19 @@ export class IdentityStore {
   save(user: StoredUser): void {
     this.byId.set(user.id, user);
   }
+
+  /** Full-fidelity export (includes salted password hashes — handle like a DB dump). */
+  exportState(): StoredUser[] {
+    return [...this.byId.values()].map((u) => ({ ...u }));
+  }
+
+  importState(users: StoredUser[]): void {
+    if (!Array.isArray(users)) throw new Error('Invalid identity snapshot.');
+    this.byId.clear();
+    this.emailToId.clear();
+    for (const u of users) {
+      this.byId.set(u.id, { ...u });
+      this.emailToId.set(u.email, u.id);
+    }
+  }
 }

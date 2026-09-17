@@ -45,4 +45,18 @@ export class ListingsStore {
     for (const l of this.all()) counts[l.status] += 1;
     return counts;
   }
+
+  exportState(): { items: Listing[]; order: string[] } {
+    return { items: this.all(), order: [...this.order] };
+  }
+
+  importState(state: { items: Listing[]; order: string[] }): void {
+    if (!state || !Array.isArray(state.items) || !Array.isArray(state.order)) {
+      throw new Error('Invalid listings snapshot.');
+    }
+    this.items.clear();
+    this.order = [];
+    for (const l of state.items) this.items.set(l.id, clone(l));
+    this.order = [...state.order];
+  }
 }

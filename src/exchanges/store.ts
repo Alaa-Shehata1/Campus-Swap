@@ -109,6 +109,43 @@ export class ExchangesStore {
     return (this.messages.get(exchangeId) ?? []).map((m) => ({ ...m }));
   }
 
+  exportState(): {
+    proposals: Proposal[];
+    exchanges: Exchange[];
+    messages: Record<string, Message[]>;
+    holds: Array<[string, string]>;
+  } {
+    const messages: Record<string, Message[]> = {};
+    for (const [id, list] of this.messages) messages[id] = list.map((m) => ({ ...m }));
+    return {
+      proposals: [...this.proposals.values()].map(cloneProposal),
+      exchanges: [...this.exchanges.values()].map(cloneExchange),
+      messages,
+      holds: [...this.holds.entries()],
+    };
+  }
+
+  importState(state: {
+    proposals: Proposal[];
+    exchanges: Exchange[];
+    messages: Record<string, Message[]>;
+    holds: Array<[string, string]>;
+  }): void {
+    if (!state || !Array.isArray(state.proposals) || !Array.isArray(state.exchanges)) {
+      throw new Error('Invalid exchanges snapshot.');
+    }
+    this.proposals.clear();
+    this.exchanges.clear();
+    this.messages.clear();
+    this.holds.clear();
+    for (const p of state.proposals) this.proposals.set(p.id, cloneProposal(p));
+    for (const e of state.exchanges) this.exchanges.set(e.id, cloneExchange(e));
+    for (const [id, list] of Object.entries(state.messages ?? {})) {
+      this.messages.set(id, list.map((m) => ({ ...m })));
+    }
+    for (const [k, v] of state.holds ?? []) this.holds.set(k, v);
+  }
+
   /** Exchange/proposal counts per state for pilot metrics (NFR-O-1). */
   exchangeStats(): Record<ExchangeStatus, number> {
     const counts: Record<ExchangeStatus, number> = {

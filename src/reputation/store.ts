@@ -60,4 +60,14 @@ export class ReputationStore {
     for (const r of this.items.values()) ids.add(r.exchangeId);
     return [...ids];
   }
+
+  exportState(): Review[] {
+    return [...this.items.values()].map(clone);
+  }
+
+  importState(reviews: Review[]): void {
+    if (!Array.isArray(reviews)) throw new Error('Invalid reputation snapshot.');
+    this.items.clear();
+    for (const r of reviews) this.items.set(r.id, clone(r));
+  }
 }
