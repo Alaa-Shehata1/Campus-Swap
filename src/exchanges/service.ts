@@ -2,6 +2,7 @@ import { fail, ok, type Result } from '../common/errors.js';
 import { formatCairoTime } from '../common/cairoTime.js';
 import { ExchangesStore } from './store.js';
 import type {
+  CancelReason,
   Exchange,
   IdentityPort,
   ListingsPort,
@@ -311,7 +312,166 @@ export function createExchangesService(
     return ok({ exchange: e, safetyNudge: SAFETY_NUDGE });
   }
 
-  return { propose, getProposal, respond, withdraw, runExpiry, lockStatus, openCount, schedule, store };
+  /** Two-step completion, step 1 (FR-E-6). Schedule-less Done needs override + reason. */
+  function markDone(
+    userId: string,
+    exchangeId: string,
+    opts: { overrideReason?: string } = {},
+  ): Result<Exchange> {
+    const e = store.getExchange(exchangeId);
+    if (!e) return fail([{ code: 'not-found', message: 'Exchange not found.' }]);
+    if (e.status !== 'Scheduled') {
+      return fail([
+        { code: 'invalid-transition', message: `Exchange is ${e.status}; only Scheduled exchanges can complete.` },
+      ]);
+    }
+    if (!isParticipantOf(e, userId)) {
+      return fail([
+        { code: 'not-participant', message: 'Only exchange participants can mark Done.' },
+      ]);
+    }
+    if (e.doneMarkedBy !== undefined) {
+      return fail([
+        { code: 'invalid-transition', message: 'Done already marked; awaiting confirmation.' },
+      ]);
+    }
+    if (!e.schedule && !opts.overrideReason?.trim()) {
+      return fail([
+        {
+          code: 'schedule-required',
+          message:
+            'Completion requires a schedule. Set one first, or record an explicit override reason.',
+        },
+      ]);
+    }
+    e.doneMarkedBy = userId;
+    e.doneMarkedAtMs = now();
+    e.log.push(
+      opts.overrideReason?.trim()
+        ? `done marked by ${userId} with schedule override: ${opts.overrideReason.trim()}`
+        : `done marked by ${userId}`,
+    );
+    store.saveExchange(e);
+    return ok(e);
+  }
+
+  /** Step 2a: the OTHER participant confirms within 7 days. */
+  function confirm(userId: string, exchangeId: string): Result<Exchange> {
+    const e = store.getExchange(exchangeId);
+    if (!e) return fail([{ code: 'not-found', message: 'Exchange not found.' }]);
+    if (e.status !== 'Scheduled' || e.doneMarkedBy === undefined || e.doneMarkedAtMs === undefined) {
+      return fail([
+        { code: 'invalid-transition', message: 'Nothing is awaiting confirmation on this exchange.' },
+      ]);
+    }
+    if (!isParticipantOf(e, userId)) {
+      return fail([
+        { code: 'not-participant', message: 'Only exchange participants can confirm.' },
+      ]);
+    }
+    if (userId === e.doneMarkedBy) {
+      return fail([
+        { code: 'not-permitted', message: 'You cannot confirm your own Done-mark.' },
+      ]);
+    }
+    if (now() - e.doneMarkedAtMs > COMPLETION_WINDOW_MS) {
+      return fail([
+        { code: 'confirmation-window-passed', message: 'The 7-day confirmation window has passed.' },
+      ]);
+    }
+    e.status = 'Completed';
+    e.log.push(`confirmed by ${userId}`);
+    store.saveExchange(e);
+    return ok(e);
+  }
+
+  /** Step 2b: the OTHER participant disputes within 7 days → Disputed. */
+  function dispute(userId: string, exchangeId: string): Result<Exchange> {
+    const e = store.getExchange(exchangeId);
+    if (!e) return fail([{ code: 'not-found', message: 'Exchange not found.' }]);
+    if (e.status !== 'Scheduled' || e.doneMarkedBy === undefined || e.doneMarkedAtMs === undefined) {
+      return fail([
+        { code: 'invalid-transition', message: 'Nothing is awaiting confirmation on this exchange.' },
+      ]);
+    }
+    if (!isParticipantOf(e, userId)) {
+      return fail([
+        { code: 'not-participant', message: 'Only exchange participants can dispute.' },
+      ]);
+    }
+    if (userId === e.doneMarkedBy) {
+      return fail([
+        { code: 'not-permitted', message: 'You cannot dispute your own Done-mark.' },
+      ]);
+    }
+    if (now() - e.doneMarkedAtMs > COMPLETION_WINDOW_MS) {
+      return fail([
+        { code: 'confirmation-window-passed', message: 'The 7-day confirmation window has passed.' },
+      ]);
+    }
+    e.status = 'Disputed';
+    e.log.push(`disputed by ${userId}`);
+    store.saveExchange(e);
+    return ok(e);
+  }
+
+  /** Silence job: Done-marked exchanges auto-complete after 7 days (FR-E-6). */
+  function runAutoComplete(nowMs: number): Exchange[] {
+    const due = store.doneMarkedOlderThan(nowMs, COMPLETION_WINDOW_MS);
+    for (const e of due) {
+      e.status = 'Completed';
+      e.log.push('auto-completed after 7-day silence');
+      store.saveExchange(e);
+    }
+    return due;
+  }
+
+  /** Cancellation with reason (FR-E-4). Either participant, Scheduled only. */
+  function cancel(
+    userId: string,
+    exchangeId: string,
+    input: { reason: CancelReason; detail?: string },
+  ): Result<Exchange> {
+    const e = store.getExchange(exchangeId);
+    if (!e) return fail([{ code: 'not-found', message: 'Exchange not found.' }]);
+    if (e.status !== 'Scheduled') {
+      return fail([
+        { code: 'invalid-transition', message: `Exchange is ${e.status}; only Scheduled exchanges can be cancelled.` },
+      ]);
+    }
+    if (!isParticipantOf(e, userId)) {
+      return fail([
+        { code: 'not-participant', message: 'Only exchange participants can cancel.' },
+      ]);
+    }
+    if (!CANCEL_REASONS.includes(input.reason)) {
+      return fail([
+        {
+          code: 'invalid',
+          field: 'reason',
+          message: 'Cancellation requires a reason: no-show, conflict, item-unavailable, safety-concern, or other.',
+        },
+      ]);
+    }
+    e.status = 'Cancelled';
+    e.cancelReason = input.reason;
+    if (input.detail?.trim()) e.cancelDetail = input.detail.trim();
+    e.log.push(`cancelled by ${userId}: ${input.reason}`);
+    store.saveExchange(e);
+    return ok(e);
+  }
+
+  function getExchange(id: string): Exchange | undefined {
+    return store.getExchange(id);
+  }
+
+  return { propose, getProposal, respond, withdraw, runExpiry, lockStatus, openCount, schedule, markDone, confirm, dispute, runAutoComplete, cancel, getExchange, store };
+}
+
+const CANCEL_REASONS: CancelReason[] = ['no-show', 'conflict', 'item-unavailable', 'safety-concern', 'other'];
+
+function isParticipantOf(e: Exchange, userId: string): boolean {
+  return userId === e.participantA || userId === e.participantB;
 }
 
 export interface ScheduleInput {

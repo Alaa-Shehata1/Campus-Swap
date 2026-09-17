@@ -56,6 +56,21 @@ export class ExchangesStore {
     return out;
   }
 
+  doneMarkedOlderThan(nowMs: number, windowMs: number): Exchange[] {
+    const out: Exchange[] = [];
+    for (const e of this.exchanges.values()) {
+      if (
+        e.status === 'Scheduled' &&
+        e.doneMarkedBy !== undefined &&
+        e.doneMarkedAtMs !== undefined &&
+        nowMs - e.doneMarkedAtMs > windowMs
+      ) {
+        out.push(cloneExchange(e));
+      }
+    }
+    return out;
+  }
+
   insertExchange(e: Omit<Exchange, 'id'>): Exchange {
     const full: Exchange = { ...e, id: randomUUID() };
     this.exchanges.set(full.id, full);
