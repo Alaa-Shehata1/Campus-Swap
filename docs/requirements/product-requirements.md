@@ -15,7 +15,7 @@
 | D4 | Item modalities: `lend` \| `give` \| `swap` (item-for-item allowed). Loan duration/return date is **lender-defined per deal** (required for `lend`). **Zero platform liability** for damage/loss/theft; disclaimers pervasive (see NFR-L-1). |
 | D5 | Academic help **including project work** is allowed (tutoring, collaboration, code review, essay feedback). Prohibited: submitting assessed work under another's name, exam impersonation, contract cheating. |
 | D6 | Reviews are **blind bilateral**; aggregate shows **average + count + distribution + full history**; **one threaded response per review** allowed. |
-| D7 | Listings stay `Active` while proposals are pending. No auto-pause. **Unlimited concurrent proposals** per listing. Owner manages conflicts manually. |
+| D7 (rev.1) | Listings accept max **5 open proposals** (**ProposalCap**). At cap the listing is **Locked** (still visible; no new proposals). Slots free on Declined/Expired/Withdrawn. On Accept the listing **auto-pauses** (owner may reopen); remaining pending proposals go read-only until reopened or declined. |
 | D8 | Retention: exchange messages + proposal history **12 months after exchange closure**, then anonymized. Reports/moderation logs **24 months**, then anonymized. Moderators see messages only on an opened case; access logged. `[DECIDED-AGENT]` |
 | D9 | Notifications are **in-app only** in MVP. No email/SMS/push. |
 | D10 | Stolen-item reports: hide-first, then moderator review; **law-enforcement handover only on owner (human developer) approval** with preserved evidence. Liability disclaimers on signup, listing create, proposal accept, schedule confirm, item-lend flow. |
@@ -71,8 +71,8 @@ need without money, using skills and items they already have, in a way they trus
   explains creating the complementary listing.*
 - **J3. Propose → negotiate → accept:** proposal links ≥1 listing per side +
   terms text; counterparty Accepts/Declines; proposer may Withdraw; expiry 7 days.
-  Unlimited concurrent proposals; listing stays Active. Accepted ⇒ Exchange
-  `Scheduled`. *Verify: one-sided proposals rejected; terms freeze on accept.*
+  Max 5 open proposals per listing (6th rejected, listing Locked); auto-pause
+  on accept. Accepted ⇒ Exchange `Scheduled`. *Verify: one-sided proposals rejected; terms freeze on accept.*
 - **J4. Schedule → meet → complete:** date/time (Cairo) + free-text place
   (public-spot recommendation shown; private allowed) → meet → A marks Done →
   B Confirms (or Disputes within 7 days; auto-complete after 7 days silence with
@@ -90,8 +90,8 @@ need without money, using skills and items they already have, in a way they trus
 ## 4. MVP Scope
 
 **In:** signup/login/logout/profile (D1, 18+); Offer/Request CRUD (skill/item,
-lend/give/swap); public browse/search/filter/detail; unlimited proposals +
-accept/decline/withdraw/expire + participant-only text thread; schedule
+lend/give/swap); public browse/search/filter/detail; capped proposals (5 open max,
+lock at cap, auto-pause on accept) + participant-only text thread; schedule
 (Cairo time + place) + two-step completion + cancellation with reason;
 blind reviews + responses + aggregate; report + moderation queue
 (hide/warn/suspend/ban, audit-logged) + reporter status; in-app notifications
@@ -116,11 +116,12 @@ matching beyond category + opposite-side; no insurance/escrow; no email channel.
 9. Group (>2-party) exchanges; chained/barter-ring swaps; org accounts.
 10. Public API, embeds, data export.
 11. Gamification, ads, monetization.
-12. Email/SMS/push notifications; auto-pause of listings; fixed loan caps.
+12. Email/SMS/push notifications; fixed loan caps.
 
 ## 6. Future Expansion (post-MVP, not committed)
 
-Verified-enrollment badge; auto-pause/engagement states; per-category loan caps;
+Verified-enrollment badge; richer engagement states (e.g. multi-copy listings
+that stay open after one accept); per-category loan caps;
 map safe-spots; calendar export; email/push opt-in; Arabic UI; true second-campus
 scoping; endorsements/vouching; availability overlap; lend-tracking with return
 confirmation; sustainability metrics (opt-in); community jury + appeals;

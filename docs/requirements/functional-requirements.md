@@ -68,10 +68,17 @@
 - FR-E-2: Proposal lifecycle `Proposed → Accepted | Declined | Expired |
   Withdrawn`. Expiry **7 days** without response. Withdrawal allowed any time
   before acceptance by either side. Accepted ⇒ Exchange `Scheduled`.
-- FR-E-3: **Unlimited concurrent proposals** per listing; listing stays `Active`
-  while proposals pend. No auto-pause. Owner resolves conflicts manually.
-  *Verify: 50 open proposals on one listing coexist; acceptance of one does not
-  hide the listing.*
+- FR-E-3: Max **5 open** (`Proposed`) proposals per listing (**ProposalCap**).
+  The 6th proposal is rejected with a reason (`proposal-cap-reached`) and
+  guidance to try another listing or check back later. While at cap the listing
+  is **Locked**: still visible, but shows `Not accepting new proposals — 5
+  pending` and rejects new proposals. Slots free on Declined/Expired/Withdrawn.
+  On Accept the listing **auto-pauses** (`Paused`); remaining pending proposals
+  become read-only (cannot be accepted) until the owner reopens or declines
+  them; the owner may reopen at any time (cap still applies to new proposals).
+  *Verify: 5 open proposals coexist; 6th rejected with reason; accept moves the
+  listing to `Paused` and blocks accepting a second pending proposal before
+  reopen.*
 - FR-E-4: Exchange lifecycle `Scheduled → Completed | Cancelled | Disputed`.
   Cancellation requires reason (no-show, conflict, item unavailable, safety
   concern, other + optional text).
@@ -163,6 +170,8 @@
 | Offer / Request | `I give` / `I need`. Subtype `skill` or `item`. |
 | Listing | Published Offer/Request; states `Draft/Active/Paused/Archived`. |
 | Proposal | Invitation linking ≥1 listing per side + terms; `Proposed/Accepted/Declined/Expired/Withdrawn`. |
+| ProposalCap (5) | Max open (`Proposed`) proposals per listing; 6th rejected. |
+| Locked | Derived listing state at cap: visible, no new proposals. Distinct from `Paused` (owner/system state). |
 | Exchange | Accepted proposal; `Scheduled/Completed/Cancelled/Disputed`. |
 | LoanTerm | Lender-defined return date/duration on `lend` (required). |
 | Schedule | Cairo-time date/time + place text. |
@@ -184,8 +193,12 @@ Report *—1 User|Listing`.
 1. No-show ⇒ cancellable (`no-show`); no review; pattern flaggable.
 2. Partial completion ⇒ no partial state in MVP; mark `Disputed` with note.
 3. Overdue lend ⇒ reminders + `item not returned` report; no auto-penalty.
-4. Double-commit (accepted twice for one item) ⇒ allowed by system; owner
-   cancels one with reason; repeat ⇒ sanctionable.
+4. Double-commit (accepted twice for one item) ⇒ prevented by default: cap of
+   5 open proposals bounds the queue, and first acceptance auto-pauses the
+   listing so a second pending proposal cannot be accepted before reopen.
+   Residual: owner reopens then accepts a second proposal (deliberate, e.g. a
+   skill offered to many) — allowed, but the pattern is flaggable for `give` /
+   `swap` single items; cancellations still require a reason.
 5. Value dispute ⇒ pre-accept durations only; post-hoc remedy is review.
 6. Graduation/email loss ⇒ existing exchanges completable; new publishing
    requires active login only (no enrollment recheck in MVP).
