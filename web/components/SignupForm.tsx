@@ -5,6 +5,7 @@ import { signupAction, type ActionState } from '../app/actions';
 import { Disclaimer } from './Disclaimer';
 import { FieldErrors } from './FieldErrors';
 import { SubmitButton } from './SubmitButton';
+import { InlineAlert } from './ui/InlineAlert';
 
 const initial: ActionState = { errors: [] };
 
@@ -13,6 +14,9 @@ export function SignupForm({ returnTo }: { returnTo: string }) {
   return (
     <>
       <Disclaimer flow="signup" />
+      <InlineAlert tone="info" title="Your email stays private">
+        It is used for login and account ownership only.
+      </InlineAlert>
       <form action={action} className="mt-4 space-y-4">
         <input type="hidden" name="returnTo" value={returnTo} />
         <div>
@@ -24,7 +28,7 @@ export function SignupForm({ returnTo }: { returnTo: string }) {
             name="displayName"
             required
             autoComplete="nickname"
-            className="mt-1 w-full rounded border border-stone-300 px-3 py-2"
+            className="mt-1 w-full rounded-md border border-border bg-surface-elevated px-3 py-2"
           />
           <FieldErrors errors={state.errors} field="displayName" />
         </div>
@@ -38,7 +42,7 @@ export function SignupForm({ returnTo }: { returnTo: string }) {
             type="email"
             required
             autoComplete="email"
-            className="mt-1 w-full rounded border border-stone-300 px-3 py-2"
+            className="mt-1 w-full rounded-md border border-border bg-surface-elevated px-3 py-2"
           />
           <FieldErrors errors={state.errors} field="email" />
         </div>
@@ -53,7 +57,7 @@ export function SignupForm({ returnTo }: { returnTo: string }) {
             required
             minLength={8}
             autoComplete="new-password"
-            className="mt-1 w-full rounded border border-stone-300 px-3 py-2"
+            className="mt-1 w-full rounded-md border border-border bg-surface-elevated px-3 py-2"
           />
           <FieldErrors errors={state.errors} field="password" />
         </div>
@@ -67,7 +71,7 @@ export function SignupForm({ returnTo }: { returnTo: string }) {
             defaultValue="KFS University"
             required
             autoComplete="off"
-            className="mt-1 w-full rounded border border-stone-300 px-3 py-2"
+            className="mt-1 w-full rounded-md border border-border bg-surface-elevated px-3 py-2"
           />
           <p className="mt-1 text-sm text-stone-600">
             Self-declared, not verified. Misrepresentation violates the rules.

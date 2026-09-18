@@ -6,9 +6,10 @@ import { Disclaimer } from './Disclaimer';
 import { FieldErrors } from './FieldErrors';
 import { SubmitButton } from './SubmitButton';
 import { CATEGORIES } from '../../src/policy/taxonomy.js';
+import { InlineAlert } from './ui/InlineAlert';
 
 const initial: PublishState = { errors: [] };
-const input = 'mt-1 w-full rounded border border-stone-300 px-3 py-2';
+const input = 'mt-1 w-full rounded-md border border-border bg-surface-elevated px-3 py-2';
 
 export function PublishForm() {
   const [state, action] = useActionState(publishAction, initial);
@@ -17,7 +18,10 @@ export function PublishForm() {
   return (
     <>
       <Disclaimer flow="listing-create" />
-      <form action={action} className="mt-4 max-w-xl space-y-4">
+      <InlineAlert tone="info" title="No money involved">
+        CampusSwap exchanges skills and items without payments.
+      </InlineAlert>
+      <form action={action} className="mt-4 space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-medium">
             Side

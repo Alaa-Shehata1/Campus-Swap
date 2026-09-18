@@ -1,4 +1,6 @@
 import { SignupForm } from '../../components/SignupForm';
+import { Container } from '../../components/ui/Container';
+import { PageHeader } from '../../components/ui/PageHeader';
 
 export default async function SignupPage({
   searchParams,
@@ -7,9 +9,9 @@ export default async function SignupPage({
 }) {
   const { returnTo } = await searchParams;
   return (
-    <div className="max-w-md">
-      <h1 className="mb-4 text-2xl font-bold">Sign up</h1>
+    <Container measure="readable">
+      <PageHeader title="Sign up" description="Create an account to publish and exchange." />
       <SignupForm returnTo={returnTo ?? '/'} />
-    </div>
+    </Container>
   );
 }
