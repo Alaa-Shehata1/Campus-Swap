@@ -60,7 +60,7 @@ docker compose up -d mysql
 # Fresh database: apply the schema once —
 docker exec -i campuswap-mysql mysql -ucampuswap -pcampuswap campuswap < db/schema.sql
 # Existing U1 database: apply only the additive U2 tables (proposals, exchanges, messages, holds) —
-tail -n +62 db/schema.sql | docker exec -i campuswap-mysql mysql -ucampuswap -pcampuswap campuswap
+sed -n '/-- U2-TABLES-BEGIN/,/-- U2-TABLES-END/p' db/schema.sql | docker exec -i campuswap-mysql mysql -ucampuswap -pcampuswap campuswap
 npm run seed --prefix web   # demo members (maya@kfs.edu.eg, jonas@gmail.com / password1) + listings + a scheduled demo exchange with thread
 npm run dev --prefix web    # http://localhost:3000
 ```

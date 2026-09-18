@@ -58,3 +58,12 @@
 ### Task 5: verify + PR
 
 - [ ] `npm test` (root) + `tsc` + `next build` + `next lint` (evidence); subagent review; fix Critical/Important; push; PR vs `main` with U2 summary. Merges skipped per standing instruction.
+
+---
+
+## Review deviations (recorded, all intentional)
+
+- `systemPause` lives on the listings *service* (`web/lib/services.ts` adapter) rather than on `MySqlListingsStore` — keeps validation in the service layer; store stays persistence-only.
+- New `tests/mysql-exchanges.test.ts` has no `MYSQL_URL`-unreachable skip (matches U1 `mysql-repos.test.ts` convention; CI/dev guarantee MySQL via compose).
+- No Playwright screenshots: no browser tooling in this environment; verified via live-server walkthrough (anon gates, authenticated inbox/forms/detail/thread, 404s) with curl + session cookie, plus the MySQL integration suite through the same services the routes call.
+- Follow-ups for U3+: scoped `proposalsForUser` query + indexes (inbox currently filters `exportState()` in memory — no leak, but O(table)); cancel-inside-confirm-window semantics (domain currently lets `cancel` win over pending Confirm/Dispute); post-to-resolved-thread semantics (form hidden when not Scheduled, domain `postMessage` has no status check).

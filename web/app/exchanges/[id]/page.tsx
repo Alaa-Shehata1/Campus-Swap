@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
+import { formatCairoTime } from '../../../../src/common/cairoTime.js';
 import { services, sweepExchanges } from '../../../lib/services';
 import { sessionUserId } from '../../../lib/auth';
 import { ScheduleForm, DoneForm, ConfirmDispute, CancelForm } from '../../../components/ExchangeForms';
@@ -130,7 +131,8 @@ export default async function ExchangeDetail({ params }: { params: Promise<{ id:
               >
                 <p className="whitespace-pre-wrap">{m.text}</p>
                 <p className="mt-1 text-xs text-stone-500">
-                  {m.senderId === viewerId ? 'You' : (other?.displayName ?? 'Them')}
+                  {m.senderId === viewerId ? 'You' : (other?.displayName ?? 'Them')} ·{' '}
+                  <time>{formatCairoTime(new Date(m.createdAtMs).toISOString())}</time>
                 </p>
               </li>
             ))}

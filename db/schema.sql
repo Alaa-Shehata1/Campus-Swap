@@ -59,9 +59,10 @@ CREATE TABLE IF NOT EXISTS listings (
 CREATE INDEX idx_listings_status_cat ON listings(status, category);
 CREATE INDEX idx_listings_owner ON listings(owner_id);
 
--- Phase 2 / U2: proposals, exchanges, participant thread, auto-pause holds.
+-- U2-TABLES-BEGIN (additive): proposals, exchanges, participant thread, auto-pause holds.
+-- Existing U1 databases apply only this section:
+--   sed -n '/-- U2-TABLES-BEGIN/,/-- U2-TABLES-END/p' db/schema.sql | docker exec -i campuswap-mysql mysql -ucampuswap -pcampuswap campuswap
 -- Application-generated UUIDs (CHAR(36)) match the domain seams.
--- Additive migration: safe to re-apply over a U1 database.
 
 CREATE TABLE IF NOT EXISTS proposals (
   id CHAR(36) PRIMARY KEY,
@@ -119,3 +120,4 @@ CREATE TABLE IF NOT EXISTS holds (
   CONSTRAINT fk_holds_listing FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE,
   CONSTRAINT fk_holds_exchange FOREIGN KEY (exchange_id) REFERENCES exchanges(id) ON DELETE CASCADE
 );
+-- U2-TABLES-END
