@@ -5,6 +5,12 @@ import { formatCairoTime } from '../../../../src/common/cairoTime.js';
 import { services } from '../../../lib/services.js';
 import { sessionUserId } from '../../../lib/auth.js';
 import { ListingCard } from '../../../components/ListingCard';
+import { PageHeader } from '../../../components/ui/PageHeader';
+import { OwnerSummary } from '../../../components/OwnerSummary';
+import { ListingActionPanel } from '../../../components/ListingActionPanel';
+import { ReportEntryPoint } from '../../../components/ReportEntryPoint';
+import { Badge } from '../../../components/ui/Badge';
+import { Panel } from '../../../components/ui/Panel';
 
 export default async function ListingDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -17,20 +23,21 @@ export default async function ListingDetail({ params }: { params: Promise<{ id: 
   );
   if (!detail) notFound();
   const l = detail.listing;
+  const owner = await services().identity.getProfile(l.ownerId);
   return (
     <div className="space-y-6">
       <Link href="/" className="text-sm underline">
         ← Back to listings
       </Link>
-      <article className="rounded border border-stone-200 bg-white p-6">
+      <div className="grid gap-6 lg:grid-cols-12">
+      <Panel tone="bordered" className="min-w-0 lg:col-span-8">
         <div className="flex gap-2 text-xs font-semibold uppercase tracking-wide">
-          <span className="rounded bg-emerald-100 px-2 py-0.5 text-emerald-900">{l.side}</span>
-          <span className="rounded bg-stone-200 px-2 py-0.5 text-stone-800">{l.kind}</span>
-          <span className="rounded bg-stone-100 px-2 py-0.5 text-stone-700">{l.category}</span>
-          <span className="rounded bg-stone-100 px-2 py-0.5 text-stone-700">Status: {l.status}</span>
+          <Badge tone={l.side === 'offer' ? 'offer' : 'request'}>{l.side}</Badge>
+          <Badge>{l.kind}</Badge>
+          <Badge>{l.category}</Badge>
+          <Badge tone={l.status === 'Active' ? 'active' : 'paused'}>Status: {l.status}</Badge>
         </div>
-        <h1 className="mt-2 text-2xl font-bold">{l.title}</h1>
-        <p className="mt-3 whitespace-pre-wrap">{l.description}</p>
+        <PageHeader title={l.title} description={l.description} />
         <dl className="mt-4 space-y-1 text-sm">
           <div className="flex gap-2">
             <dt className="font-medium">Meetup area:</dt>
@@ -61,21 +68,13 @@ export default async function ListingDetail({ params }: { params: Promise<{ id: 
             </dd>
           </div>
         </dl>
-        <div className="mt-6">
-          {detail.loginCTA ? (
-            <Link
-              href={`/login?returnTo=/listings/${l.id}`}
-              className="inline-block rounded bg-emerald-700 px-4 py-2 font-medium text-white"
-            >
-              Log in to propose
-            </Link>
-          ) : (
-            <p className="rounded border border-stone-200 bg-stone-50 p-3 text-sm text-stone-600">
-              Proposals open in U2 — for now, browse and publish.
-            </p>
-          )}
-        </div>
-      </article>
+      </Panel>
+      <aside className="space-y-4 lg:col-span-4">
+        <OwnerSummary displayName={owner?.displayName ?? 'A member'} campus={owner?.campus ?? 'KFS University'} />
+        <ListingActionPanel listing={l} loginCTA={detail.loginCTA} />
+        <ReportEntryPoint targetId={l.id} authenticated={!detail.loginCTA} />
+      </aside>
+      </div>
       {detail.compatible.length > 0 && (
         <section aria-label="Compatible listings">
           <h2 className="mb-3 text-lg font-bold">Compatible listings</h2>
