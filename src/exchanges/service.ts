@@ -136,7 +136,7 @@ export function createExchangesService(
       status: 'Proposed',
       createdAtMs: now(),
     });
-    deps.notify?.emit(counterpartyId, 'proposal-received', proposal.id);
+    await deps.notify?.emit(counterpartyId, 'proposal-received', proposal.id);
     return ok(proposal);
   }
 
@@ -173,7 +173,7 @@ export function createExchangesService(
       p.status = 'Declined';
       p.decidedAtMs = now();
       await store.saveProposal(p);
-      deps.notify?.emit(p.proposerId, 'proposal-declined', p.id);
+      await deps.notify?.emit(p.proposerId, 'proposal-declined', p.id);
       return ok(p);
     }
     return accept(p);
@@ -222,7 +222,7 @@ export function createExchangesService(
     p.decidedAtMs = now();
     p.exchangeId = exchange.id;
     await store.saveProposal(p);
-    deps.notify?.emit(p.proposerId, 'proposal-accepted', p.id);
+    await deps.notify?.emit(p.proposerId, 'proposal-accepted', p.id);
     return ok({ proposal: p, exchange });
   }
 
@@ -269,7 +269,7 @@ export function createExchangesService(
       p.status = 'Expired';
       p.decidedAtMs = nowMs;
       await store.saveProposal(p);
-      deps.notify?.emit(p.proposerId, 'proposal-expired', p.id);
+      await deps.notify?.emit(p.proposerId, 'proposal-expired', p.id);
     }
     return expired;
   }
@@ -330,7 +330,7 @@ export function createExchangesService(
     e.schedule = { at: formatCairoTime(new Date(atMs).toISOString()), place };
     e.log.push(`scheduled for ${e.schedule.at} at ${place}`);
     await store.saveExchange(e);
-    deps.notify?.emit(otherOf(e, userId), rescheduled ? 'schedule-changed' : 'schedule-set', e.id);
+    await deps.notify?.emit(otherOf(e, userId), rescheduled ? 'schedule-changed' : 'schedule-set', e.id);
     return ok({ exchange: e, safetyNudge: SAFETY_NUDGE });
   }
 
@@ -374,7 +374,7 @@ export function createExchangesService(
         : `done marked by ${userId}`,
     );
     await store.saveExchange(e);
-    deps.notify?.emit(otherOf(e, userId), 'completion-requested', e.id);
+    await deps.notify?.emit(otherOf(e, userId), 'completion-requested', e.id);
     return ok(e);
   }
 
@@ -405,7 +405,7 @@ export function createExchangesService(
     e.status = 'Completed';
     e.log.push(`confirmed by ${userId}`);
     await store.saveExchange(e);
-    deps.notify?.emit(otherOf(e, userId), 'completion-confirmed', e.id);
+    await deps.notify?.emit(otherOf(e, userId), 'completion-confirmed', e.id);
     return ok(e);
   }
 
@@ -446,8 +446,8 @@ export function createExchangesService(
       e.status = 'Completed';
       e.log.push('auto-completed after 7-day silence');
       await store.saveExchange(e);
-      deps.notify?.emit(e.participantA, 'completion-confirmed', e.id);
-      deps.notify?.emit(e.participantB, 'completion-confirmed', e.id);
+      await deps.notify?.emit(e.participantA, 'completion-confirmed', e.id);
+      await deps.notify?.emit(e.participantB, 'completion-confirmed', e.id);
     }
     return due;
   }
@@ -484,7 +484,7 @@ export function createExchangesService(
     if (input.detail?.trim()) e.cancelDetail = input.detail.trim();
     e.log.push(`cancelled by ${userId}: ${input.reason}`);
     await store.saveExchange(e);
-    deps.notify?.emit(otherOf(e, userId), 'cancellation', e.id);
+    await deps.notify?.emit(otherOf(e, userId), 'cancellation', e.id);
     return ok(e);
   }
 

@@ -1,5 +1,5 @@
 import { fail, ok, type FieldError, type Result } from '../common/errors.js';
-import { ModerationStore } from './store.js';
+import { ModerationStore, type ModerationStorePort } from './store.js';
 import type {
   AuditEntry,
   Handover,
@@ -68,7 +68,7 @@ export interface ModerationDeps {
 
 export function createModerationService(
   deps: ModerationDeps,
-  opts: { now?: () => number; store?: ModerationStore } = {},
+  opts: { now?: () => number; store?: ModerationStorePort } = {},
 ) {
   const store = opts.store ?? new ModerationStore();
   const now = opts.now ?? Date.now;
@@ -157,7 +157,7 @@ export function createModerationService(
       await store.openCase(created.id);
       await store.saveReport(created);
     }
-    deps.notify?.emit(reporterId, 'report-status', created.id);
+    await deps.notify?.emit(reporterId, 'report-status', created.id);
     return ok(created);
   }
 
@@ -199,7 +199,7 @@ export function createModerationService(
     if (next === 'Under review') await store.openCase(id);
     else await store.closeCase(id);
     await store.saveReport(r);
-    deps.notify?.emit(r.reporterId, 'report-status', id);
+    await deps.notify?.emit(r.reporterId, 'report-status', id);
     return ok(r);
   }
 
@@ -242,7 +242,7 @@ export function createModerationService(
       input.targetType === 'user'
         ? input.targetId
         : (await deps.listings.get(input.targetId))?.ownerId;
-    if (notifyTarget) deps.notify?.emit(notifyTarget, 'moderation-action', created.id);
+    if (notifyTarget) await deps.notify?.emit(notifyTarget, 'moderation-action', created.id);
     return ok(created);
   }
 
@@ -265,7 +265,7 @@ export function createModerationService(
       actor,
       atMs: now(),
     });
-    deps.notify?.emit(userId, 'moderation-action', created.id);
+    await deps.notify?.emit(userId, 'moderation-action', created.id);
     return ok(created);
   }
 
@@ -286,7 +286,7 @@ export function createModerationService(
       actor,
       atMs: now(),
     });
-    if (restored.value.ownerId) deps.notify?.emit(restored.value.ownerId, 'moderation-action', created.id);
+    if (restored.value.ownerId) await deps.notify?.emit(restored.value.ownerId, 'moderation-action', created.id);
     return ok(created);
   }
 
@@ -360,7 +360,7 @@ export function createModerationService(
     r.history.push({ status: 'Resolved', atMs, by: moderatorId });
     await store.closeCase(reportId);
     await store.saveReport(r);
-    deps.notify?.emit(r.reporterId, 'report-status', reportId);
+    await deps.notify?.emit(r.reporterId, 'report-status', reportId);
     return ok(handover);
   }
 

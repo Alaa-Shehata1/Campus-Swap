@@ -82,10 +82,14 @@ describe('mysql U3 seams (reputation/moderation/notifications)', () => {
   }
 
   async function completedExchange(
-    world: Awaited<ReturnType<typeof world>>,
+    w: {
+      users: ReturnType<typeof createIdentityService>;
+      items: ReturnType<typeof createListingsService>;
+      exchanges: ReturnType<typeof createExchangesService>;
+    },
     tag: string,
   ): Promise<{ a: string; b: string; exchangeId: string }> {
-    const { users, items, exchanges } = world;
+    const { users, items, exchanges } = w;
     const a = await users.register({
       email: `u3-${tag}-a@gmail.com`, password: 'password1', displayName: `U3${tag}A`,
       campus: 'KFS University', ageConfirmed18: true, rulesAccepted: true,
@@ -162,7 +166,7 @@ describe('mysql U3 seams (reputation/moderation/notifications)', () => {
       assert.equal(rep.ok, true);
       if (!rep.ok) return;
       assert.equal(rep.value.status, 'Received');
-      assert.equal((await w.moderation.triage(b, rep.value.id)).ok, true);
+      assert.equal((await w.moderation.triage(rep.value.id, b, 'acknowledge')).ok, true);
       assert.equal((await w.moderation.getReport(rep.value.id))?.status, 'Under review');
       const sanc = await w.moderation.sanction(b, {
         action: 'warn', targetType: 'user', targetId: b, reason: 'First warning.',
