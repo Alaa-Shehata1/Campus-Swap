@@ -62,8 +62,8 @@ describe('mysql metrics/health over live seams (U4)', () => {
         {
           listings: {
             get: (id) => listingsStore.get(id),
-            systemHide: (id) => listings.systemHide(id),
-            systemUnhide: (id) => listings.systemUnhide(id),
+            systemHide: (id) => items.systemHide(id),
+            systemUnhide: (id) => items.systemUnhide(id),
           },
           identity: {
             getProfile: (id) => users.getProfile(id),
