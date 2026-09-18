@@ -11,6 +11,8 @@ describe('marketplace route migration', () => {
   it('defines the browse grid and keeps browse full-width', () => {
     assert.ok(existsSync(join(root, 'web/components/ListingGrid.tsx')));
     assert.match(read('web/app/page.tsx'), /BrowseFilters/);
+    assert.match(read('web/components/BrowseFilters.tsx'), /FilterRail[\s\S]*open=/);
+    assert.match(read('web/components/BrowseFilters.tsx'), /onToggle=/);
     assert.doesNotMatch(read('web/app/page.tsx'), /max-w-4xl|max-w-5xl/);
     assert.match(read('web/components/ListingCard.tsx'), /Badge/);
   });

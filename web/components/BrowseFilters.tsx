@@ -7,6 +7,7 @@ import { SearchForm } from './SearchForm';
 
 export function BrowseFilters() {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [railOpen, setRailOpen] = useState(true);
   return (
     <>
       <div className="mb-4 flex justify-end lg:hidden">
@@ -18,7 +19,7 @@ export function BrowseFilters() {
           Open filters
         </button>
       </div>
-      <FilterRail>
+      <FilterRail open={railOpen} onToggle={() => setRailOpen((open) => !open)}>
         <SearchForm />
       </FilterRail>
       <FilterDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)}>
