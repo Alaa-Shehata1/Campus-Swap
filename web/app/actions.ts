@@ -203,3 +203,13 @@ export async function cancelAction(_prev: ActionState, form: FormData): Promise<
   if (!result.ok) return { errors: result.errors };
   redirect(`/exchanges/${exchangeId}`);
 }
+
+export async function postMessageAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const userId = await sessionUserId();
+  const exchangeId = String(form.get('exchangeId') ?? '');
+  if (!userId) redirect(`/login?returnTo=/exchanges/${encodeURIComponent(exchangeId)}`);
+  const { exchanges } = services();
+  const result = await exchanges.postMessage(userId, exchangeId, String(form.get('text') ?? ''));
+  if (!result.ok) return { errors: result.errors };
+  redirect(`/exchanges/${exchangeId}`);
+}

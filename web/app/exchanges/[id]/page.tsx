@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { services, sweepExchanges } from '../../../lib/services';
 import { sessionUserId } from '../../../lib/auth';
 import { ScheduleForm, DoneForm, ConfirmDispute, CancelForm } from '../../../components/ExchangeForms';
+import { ThreadForm } from '../../../components/ThreadForm';
 
 export default async function ExchangeDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -15,6 +16,8 @@ export default async function ExchangeDetail({ params }: { params: Promise<{ id:
   const otherId = e.participantA === viewerId ? e.participantB : e.participantA;
   const other = await svc.identity.getProfile(otherId);
   const listings = await Promise.all(e.listingIds.map((lid) => svc.listings.get(lid)));
+  const thread = await svc.exchanges.getMessages(viewerId, id);
+  const messages = thread.ok ? thread.value : [];
   const awaitingMe =
     e.status === 'Scheduled' && e.doneMarkedBy !== undefined && e.doneMarkedBy !== viewerId;
   const editable = e.status === 'Scheduled' && e.doneMarkedBy === undefined;
@@ -111,6 +114,30 @@ export default async function ExchangeDetail({ params }: { params: Promise<{ id:
           <CancelForm exchangeId={e.id} />
         </section>
       )}
+
+      <section aria-label="Messages" className="rounded border border-stone-200 bg-white p-6">
+        <h2 className="mb-3 text-lg font-bold">Messages (participants only)</h2>
+        {messages.length === 0 ? (
+          <p className="text-sm text-stone-500">No messages yet.</p>
+        ) : (
+          <ul className="space-y-2">
+            {messages.map((m) => (
+              <li
+                key={m.id}
+                className={`max-w-xl rounded p-3 text-sm ${
+                  m.senderId === viewerId ? 'ml-auto bg-emerald-50' : 'bg-stone-100'
+                }`}
+              >
+                <p className="whitespace-pre-wrap">{m.text}</p>
+                <p className="mt-1 text-xs text-stone-500">
+                  {m.senderId === viewerId ? 'You' : (other?.displayName ?? 'Them')}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+        {e.status === 'Scheduled' && <ThreadForm exchangeId={e.id} />}
+      </section>
     </div>
   );
 }
