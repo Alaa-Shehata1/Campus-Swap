@@ -177,17 +177,26 @@ async function main(): Promise<void> {
         console.log('moderator exists already');
       }
       const allEx = await exchanges.store.exportState();
-      const demo = allEx.exchanges.find((e) => e.status === 'Scheduled');
+      const demo = allEx.exchanges.find(
+        (e) =>
+          e.status === 'Scheduled' &&
+          [e.participantA, e.participantB].includes(mayaId) &&
+          [e.participantA, e.participantB].includes(jonasId),
+      );
       if (demo) {
         const done = await exchanges.markDone(demo.participantA, demo.id);
-        if (done.ok) {
-          const other = demo.participantA === mayaId ? jonasId : mayaId;
-          await exchanges.confirm(other, demo.id);
+        const other = demo.participantA === mayaId ? jonasId : mayaId;
+        const confirmed = done.ok ? await exchanges.confirm(other, demo.id) : done;
+        if (confirmed.ok) {
           console.log(`completed: ${demo.id}`);
           const r1 = await reputation.submitReview(demo.participantA, demo.id, { score: 5, text: 'Great swap, highly recommended!' });
           const r2 = await reputation.submitReview(other, demo.id, { score: 4, text: 'Thanks, smooth exchange!' });
           console.log(r1.ok && r2.ok ? 'reviews: bilateral demo reviews published' : 'reviews skip');
+        } else {
+          console.log('complete skip: demo exchange not completable (already handled — reset DB for a fresh demo)');
         }
+      } else {
+        console.log('complete skip: no Scheduled Maya/Jonas exchange (already completed — reset DB for a fresh demo)');
       }
       const all = await listingsStore.all();
       const target = all.find((l) => l.ownerId === jonasId && (l.status === 'Active' || l.status === 'Paused'));

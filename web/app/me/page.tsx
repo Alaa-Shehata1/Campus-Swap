@@ -90,7 +90,7 @@ async function ReviewRow({
       {review.text && <p className="mt-1 whitespace-pre-wrap">{review.text}</p>}
       {review.response && (
         <p className="mt-1 text-text-muted">
-          <span className="font-medium">Response:</span> {review.response.text}
+          <span className="font-medium">Your response:</span> {review.response.text}
         </p>
       )}
     </li>

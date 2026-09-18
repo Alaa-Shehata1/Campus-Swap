@@ -100,4 +100,6 @@ record). Keyboard-only + contrast/focus notes for touched routes.
   focus-return by Spark). Routes branch must rebase onto shell to pick up the
   FilterRail fix before R-T3 uses it.
 - [ ] R-T3–T6, R+, R-T7 (Copilot, routes branch)
-- [ ] U3 (Spark, after routes progress; domain seams already on this line)
+- [x] U3 Tasks 1–4 (Spark, `feat/u3-reviews-moderation` stacked on shell +
+  merged U2 line): MySQL seams, blind reviews, reports/moderation queue,
+  inbox. Remaining: Task 5 verify + PR.

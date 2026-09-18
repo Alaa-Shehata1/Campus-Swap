@@ -798,7 +798,7 @@ export class MySqlReputationStore {
 
   async counts(): Promise<{ total: number; published: number }> {
     const [rows] = await this.pool.execute<RowDataPacket[]>(
-      `SELECT COUNT(*) AS total, SUM(status = 'Published') AS published FROM reviews`,
+      `SELECT COUNT(*) AS total, COALESCE(SUM(status = 'Published'), 0) AS published FROM reviews`,
     );
     return { total: num(rows[0]!['total']), published: num(rows[0]!['published']) };
   }

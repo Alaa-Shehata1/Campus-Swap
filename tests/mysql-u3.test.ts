@@ -149,6 +149,16 @@ describe('mysql U3 seams (reputation/moderation/notifications)', () => {
       assert.equal(agg.count, 1);
       assert.equal(agg.average, 5);
       assert.equal(agg.distribution[5], 1);
+      // Edit + response + void round-trip through MySQL column mappings.
+      const edited = await w.reputation.editReview(a, ra.value.id, { text: 'Great swap, updated!' });
+      assert.equal(edited.ok, true);
+      const resp = await w.reputation.respondToReview(b, ra.value.id, { text: 'Glad to hear it!' });
+      assert.equal(resp.ok, true);
+      if (!resp.ok) return;
+      assert.equal(resp.value.response?.text, 'Glad to hear it!');
+      const fresh = await w.reputation.getReview(a, ra.value.id);
+      assert.equal(fresh?.text, 'Great swap, updated!');
+      assert.equal(fresh?.response?.text, 'Glad to hear it!');
     } finally {
       await w.pool.end();
     }
@@ -176,6 +186,16 @@ describe('mysql U3 seams (reputation/moderation/notifications)', () => {
       assert.ok(log.some((e) => e.kind === 'sanction'));
       const inbox = await w.notify.inbox(a);
       assert.ok(inbox.some((n) => n.type === 'report-status'));
+      // Void path through MySQL columns + voids table + audit.
+      const mv = await completedExchange(w, 'modv');
+      const vr = await w.reputation.submitReview(mv.a, mv.exchangeId, { score: 1, text: 'Abusive review.' });
+      assert.equal(vr.ok, true);
+      if (!vr.ok) return;
+      const voided = await w.moderation.voidReview(b, vr.value.id, 'Abusive content.');
+      assert.equal(voided.ok, true);
+      assert.equal((await w.reputation.getReview(mv.a, vr.value.id))?.status, 'Voided');
+      const log2 = await w.moderation.auditLog();
+      assert.ok(log2.some((e) => e.kind === 'void'));
     } finally {
       await w.pool.end();
     }
@@ -190,6 +210,16 @@ describe('mysql U3 seams (reputation/moderation/notifications)', () => {
       assert.ok((await w.notify.unreadCount(b)) >= 1);
       await w.notify.markRead(b, inbox[0]!.id);
       assert.equal((await w.notify.unreadCount(b)), inbox.length - 1);
+    } finally {
+      await w.pool.end();
+    }
+  });
+
+  it('returns zero (not null) review counts on an empty table', async () => {
+    const w = await world();
+    try {
+      await w.pool.execute('DELETE FROM reviews');
+      assert.deepEqual(await w.reputation.store.counts(), { total: 0, published: 0 });
     } finally {
       await w.pool.end();
     }

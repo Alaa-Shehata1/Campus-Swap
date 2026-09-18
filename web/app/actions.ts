@@ -260,9 +260,15 @@ const REPORT_REASONS = [
 ] as const;
 
 export async function reportAction(_prev: ActionState, form: FormData): Promise<ActionState> {
-  const userId = await sessionUserId();
-  if (!userId) redirect('/login?returnTo=/reports/new');
   const targetType = String(form.get('targetType') ?? '');
+  const targetId = String(form.get('targetId') ?? '');
+  const userId = await sessionUserId();
+  if (!userId) {
+    const back = targetType && targetId
+      ? `/reports/new?targetType=${encodeURIComponent(targetType)}&targetId=${encodeURIComponent(targetId)}`
+      : '/reports/new';
+    redirect(`/login?returnTo=${encodeURIComponent(back)}`);
+  }
   if (targetType !== 'listing' && targetType !== 'user') {
     return { errors: [{ code: 'invalid', field: 'targetType', message: 'Report target must be a listing or a user.' }] };
   }
@@ -276,7 +282,7 @@ export async function reportAction(_prev: ActionState, form: FormData): Promise<
   const { moderation } = services();
   const result = await moderation.report(userId, {
     targetType,
-    targetId: String(form.get('targetId') ?? ''),
+    targetId,
     reasonCode: reasonCode as (typeof REPORT_REASONS)[number],
     description: String(form.get('description') ?? ''),
     images,

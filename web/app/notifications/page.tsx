@@ -6,7 +6,6 @@ import { MarkAllReadButton, MarkReadButton } from '../../components/InboxActions
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Panel } from '../../components/ui/Panel';
 import { Badge } from '../../components/ui/Badge';
-import { SubmitButton } from '../../components/SubmitButton';
 
 const TYPE_LABELS: Record<string, string> = {
   'proposal-received': 'New proposal received',

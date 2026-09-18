@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased — Phase 5 U3: Reviews/Reports/Moderation/Inbox (BL-11..BL-14)
+
+- Web routes: blind bilateral reviews + one response on Completed exchanges
+  (hidden until both submit or 14 days, lazy reveal sweep on reads), aggregate
+  on profiles; report flow with reason codes + reporter status timeline;
+  moderator-only queue with triage/sanctions/escalate + audit log;
+  notification inbox with read tracking, nav unread badge, moderator nav link.
+- MySQL: `reviews`/`reports`/`sanctions`/`voids`/`handovers`/`open_cases`/
+  `notifications` tables (additive; `db/migrations/003-u3-tables.sql`) +
+  stores with full seam parity; `ReputationStorePort`/`ModerationStorePort`
+  mirror `ExchangesStorePort`; all `notify?.emit` sites awaited.
+- Known limitations: moderator thread evidence (`viewThread`) fails closed
+  (`not-configured`) until the privacy seam gets a MySQL store (U4);
+  handover approval needs `MODERATION_OWNER_ID`; notifications have no deep
+  links yet.
+- 141 tests green (`npm test`, incl. `tests/mysql-u3.test.ts`),
+  `tsc --noEmit` clean, `next build` green.
+
 ## Unreleased — Phase 5 U2: Proposals/Exchanges in the browser (BL-07..BL-10)
 
 - Web routes: proposals inbox/sent/received, propose (own-listing picker +

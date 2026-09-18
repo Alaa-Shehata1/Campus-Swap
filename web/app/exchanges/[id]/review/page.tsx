@@ -101,9 +101,9 @@ export default async function ExchangeReview({ params }: { params: Promise<{ id:
                 <p className="font-medium">Your response</p>
                 <p className="mt-1 whitespace-pre-wrap">{theirs.response.text}</p>
               </div>
-            ) : (
+            ) : theirs.status === 'Published' ? (
               <RespondReviewForm exchangeId={e.id} reviewId={theirs.id} />
-            )}
+            ) : null}
           </div>
         )}
       </Panel>
