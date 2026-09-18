@@ -27,9 +27,11 @@ export function DesktopNav({
             {unreadCount > 0 && <Badge tone="info">{unreadCount} unread</Badge>}
           </Link>
           {showModeration && (
-            <Link href="/moderation" className="text-sm underline">
-              Moderation
-            </Link>
+            <>
+              <Link href="/moderation" className="text-sm underline">Moderation</Link>
+              <Link href="/metrics" className="text-sm underline">Metrics</Link>
+              <Link href="/launch" className="text-sm underline">Launch</Link>
+            </>
           )}
           <Link href="/publish" className="rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-brand-contrast">
             Publish

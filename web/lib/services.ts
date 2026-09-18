@@ -3,6 +3,12 @@ import { createListingsService } from '../../src/listings/service.js';
 import { createExchangesService } from '../../src/exchanges/service.js';
 import { createReputationService } from '../../src/reputation/service.js';
 import { createModerationService } from '../../src/moderation/service.js';
+import { computePilotMetrics, pilotProgress } from '../../src/metrics/service.js';
+import { disclaimerAudit, cairoLabelAudit } from '../../src/launch/audits.js';
+import { evaluateLaunchGate, type LaunchAttestations } from '../../src/launch/gate.js';
+import { healthCheck } from '../../src/launch/health.js';
+import { createPrivacyService } from '../../src/privacy/service.js';
+import { disclaimerFor } from '../../src/policy/disclaimers.js';
 import {
   MySqlExchangesStore,
   MySqlIdentityStore,
@@ -73,6 +79,56 @@ export function services() {
 }
 
 export type Services = ReturnType<typeof services>;
+
+export async function metrics() {
+  const svc = services();
+  const values = await computePilotMetrics({
+    identity: svc.identity,
+    listings: svc.listings,
+    exchanges: svc.exchanges,
+    moderation: svc.moderation,
+    reputation: svc.reputation,
+  });
+  return { metrics: values, progress: pilotProgress(values) };
+}
+
+export async function launchStatus(
+  attestations: LaunchAttestations = {
+    termsSignedOff: false,
+    consultRecorded: false,
+    backupDemonstrated: false,
+    securityDrill: false,
+    keyboardPass: false,
+    disclaimerManualPass: false,
+  },
+) {
+  const svc = services();
+  const privacy = createPrivacyService();
+  const health = await healthCheck({
+    policy: { disclaimerFor },
+    privacy: { anonymizeText: (text) => privacy.anonymizeText(text) },
+    identity: svc.identity,
+    listings: svc.listings,
+    exchanges: svc.exchanges,
+    reputation: svc.reputation,
+    moderation: svc.moderation,
+    notifications: { inbox: (userId) => svc.notify.inbox(userId) },
+  });
+  const profileStats = await svc.identity.userStats();
+  const gate = evaluateLaunchGate({
+    metrics: (await metrics()).metrics,
+    health,
+    moderatorCount: profileStats.moderators,
+    attestations,
+  });
+  return {
+    health,
+    gate,
+    moderatorCount: profileStats.moderators,
+    disclaimers: disclaimerAudit(),
+    cairo: cairoLabelAudit(),
+  };
+}
 
 /**
  * Lazy time-duty sweep (U2): expiry + auto-complete run in-process at the

@@ -43,9 +43,11 @@ export function MobileNav({
                 {unreadCount > 0 && <Badge tone="info">{unreadCount} unread</Badge>}
               </Link>
               {showModeration && (
-                <Link href="/moderation" onClick={() => setOpen(false)} className="py-2 underline">
-                  Moderation
-                </Link>
+                <>
+                  <Link href="/moderation" onClick={() => setOpen(false)} className="py-2 underline">Moderation</Link>
+                  <Link href="/metrics" onClick={() => setOpen(false)} className="py-2 underline">Metrics</Link>
+                  <Link href="/launch" onClick={() => setOpen(false)} className="py-2 underline">Launch</Link>
+                </>
               )}
               <Link href="/publish" onClick={() => setOpen(false)} className="rounded-md bg-brand px-3 py-2 font-medium text-brand-contrast">
                 Publish
