@@ -9,27 +9,14 @@ import type {
   Sanction,
   SanctionAction,
 } from './types.js';
+import { MAX_REPORT_IMAGES, MIN_OTHER_DESCRIPTION, REASON_CODES } from './types.js';
 import type { Listing } from '../listings/types.js';
 import type { Restriction, UserPublic } from '../identity/types.js';
 import type { Exchange, Message } from '../exchanges/types.js';
 import type { NotifyPort } from '../notifications/types.js';
 import type { Review } from '../reputation/types.js';
 
-export const MAX_REPORT_IMAGES = 3;
-export const MIN_OTHER_DESCRIPTION = 20;
-export const MAX_REPORT_IMAGE_BYTES = 10 * 1024 * 1024;
-
-const REASON_CODES: ReasonCode[] = [
-  'haram-content',
-  'medical-legal',
-  'money-request',
-  'stolen-goods',
-  'spam-commercial',
-  'harassment',
-  'unsafe-behavior',
-  'policy-academic',
-  'other',
-];
+import { MAX_REPORT_IMAGE_BYTES } from './types.js';
 
 const SANCTION_ACTIONS: SanctionAction[] = ['hide', 'unhide', 'warn', 'suspend', 'ban', 'clear-restriction'];
 const MEMBER_SANCTIONS: SanctionAction[] = ['hide', 'warn', 'suspend', 'ban'];
@@ -408,3 +395,6 @@ function isSafeImageReference(image: unknown): image is string {
 }
 
 export type ModerationService = ReturnType<typeof createModerationService>;
+
+/** Re-exported from types.js so client bundles can import them without node deps. */
+export { MAX_REPORT_IMAGES, MAX_REPORT_IMAGE_BYTES, MIN_OTHER_DESCRIPTION, REASON_CODES };

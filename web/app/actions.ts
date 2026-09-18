@@ -253,3 +253,115 @@ export async function respondReviewAction(_prev: ActionState, form: FormData): P
   if (!result.ok) return { errors: result.errors };
   redirect(`/exchanges/${exchangeId}/review`);
 }
+
+const REPORT_REASONS = [
+  'haram-content', 'medical-legal', 'money-request', 'stolen-goods', 'spam-commercial',
+  'harassment', 'unsafe-behavior', 'policy-academic', 'other',
+] as const;
+
+export async function reportAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const userId = await sessionUserId();
+  if (!userId) redirect('/login?returnTo=/reports/new');
+  const targetType = String(form.get('targetType') ?? '');
+  if (targetType !== 'listing' && targetType !== 'user') {
+    return { errors: [{ code: 'invalid', field: 'targetType', message: 'Report target must be a listing or a user.' }] };
+  }
+  const reasonCode = String(form.get('reasonCode') ?? '');
+  if (!(REPORT_REASONS as readonly string[]).includes(reasonCode)) {
+    return { errors: [{ code: 'invalid', field: 'reasonCode', message: 'Choose a valid reason code.' }] };
+  }
+  const images = ['image1', 'image2', 'image3']
+    .map((k) => String(form.get(k) ?? '').trim())
+    .filter(Boolean);
+  const { moderation } = services();
+  const result = await moderation.report(userId, {
+    targetType,
+    targetId: String(form.get('targetId') ?? ''),
+    reasonCode: reasonCode as (typeof REPORT_REASONS)[number],
+    description: String(form.get('description') ?? ''),
+    images,
+  });
+  if (!result.ok) return { errors: result.errors };
+  redirect('/reports');
+}
+
+export async function triageAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const userId = await sessionUserId();
+  if (!userId) redirect('/login?returnTo=/moderation');
+  const decision = String(form.get('decision') ?? '');
+  if (decision !== 'acknowledge' && decision !== 'resolve') {
+    return { errors: [{ code: 'invalid', field: 'decision', message: 'Choose acknowledge or resolve.' }] };
+  }
+  const { moderation } = services();
+  const result = await moderation.triage(String(form.get('reportId') ?? ''), userId, decision);
+  if (!result.ok) return { errors: result.errors };
+  redirect('/moderation');
+}
+
+const SANCTION_ACTIONS = ['hide', 'unhide', 'warn', 'suspend', 'ban', 'clear-restriction'] as const;
+
+export async function sanctionAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const userId = await sessionUserId();
+  if (!userId) redirect('/login?returnTo=/moderation');
+  const action = String(form.get('sanctionAction') ?? '');
+  if (!(SANCTION_ACTIONS as readonly string[]).includes(action)) {
+    return { errors: [{ code: 'invalid', field: 'sanctionAction', message: 'Choose a valid sanction.' }] };
+  }
+  const targetType = String(form.get('targetType') ?? '');
+  if (targetType !== 'listing' && targetType !== 'user') {
+    return { errors: [{ code: 'invalid', field: 'targetType', message: 'Sanction target must be a listing or a user.' }] };
+  }
+  const { moderation } = services();
+  if (action === 'unhide') {
+    const result = await moderation.unhide(userId, String(form.get('targetId') ?? ''), String(form.get('reason') ?? ''));
+    if (!result.ok) return { errors: result.errors };
+    redirect('/moderation');
+  }
+  if (action === 'clear-restriction') {
+    const result = await moderation.clearRestriction(userId, String(form.get('targetId') ?? ''), String(form.get('reason') ?? ''));
+    if (!result.ok) return { errors: result.errors };
+    redirect('/moderation');
+  }
+  const result = await moderation.sanction(userId, {
+    action: action as 'hide' | 'warn' | 'suspend' | 'ban',
+    targetType,
+    targetId: String(form.get('targetId') ?? ''),
+    reason: String(form.get('reason') ?? ''),
+  });
+  if (!result.ok) return { errors: result.errors };
+  redirect('/moderation');
+}
+
+export async function escalateAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const userId = await sessionUserId();
+  if (!userId) redirect('/login?returnTo=/moderation');
+  const ownerId = process.env['MODERATION_OWNER_ID'];
+  if (!ownerId) {
+    return {
+      errors: [{
+        code: 'not-configured', field: 'ownerApprovedBy',
+        message: 'Law-enforcement handover is unavailable: no owner approver is configured (MODERATION_OWNER_ID).',
+      }],
+    };
+  }
+  const { moderation } = services();
+  const result = await moderation.escalate(String(form.get('reportId') ?? ''), userId, { ownerApprovedBy: ownerId });
+  if (!result.ok) return { errors: result.errors };
+  redirect('/moderation');
+}
+
+export async function markReadAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const userId = await sessionUserId();
+  if (!userId) redirect('/login?returnTo=/notifications');
+  const { notify } = services();
+  await notify.markRead(userId, String(form.get('notificationId') ?? ''));
+  redirect('/notifications');
+}
+
+export async function markAllReadAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const userId = await sessionUserId();
+  if (!userId) redirect('/login?returnTo=/notifications');
+  const { notify } = services();
+  await notify.markAllRead(userId);
+  redirect('/notifications');
+}

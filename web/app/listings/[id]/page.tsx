@@ -93,6 +93,20 @@ export default async function ListingDetail({ params }: { params: Promise<{ id: 
               Propose an exchange
             </Link>
           )}
+          {!isOwner && (
+            <p className="text-sm">
+              <Link
+                href={
+                  detail.loginCTA
+                    ? `/login?returnTo=/reports/new?targetType=listing&targetId=${l.id}`
+                    : `/reports/new?targetType=listing&targetId=${l.id}`
+                }
+                className="underline"
+              >
+                Report this listing
+              </Link>
+            </p>
+          )}
         </div>
       </article>
       {detail.compatible.length > 0 && (
