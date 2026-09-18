@@ -89,5 +89,19 @@ record). Keyboard-only + contrast/focus notes for touched routes.
 - [ ] R-T1 implemented (Spark, this branch)
 - [ ] R-T2 implemented (Spark, this branch)
 - [ ] Shell pushed → human notifies Copilot
-- [ ] R-T3–T6, R+, R-T7 (Copilot, routes branch)
+- [x] R-T3–T6, R+, R-T7 (Copilot, routes branch)
+
+## Route-branch acceptance notes (2026-09-18)
+
+- Structural web tests, root tests, root TypeScript, web TypeScript, Next build,
+  and `git diff --check` passed on `feat/marketplace-routes`.
+- Keyboard review: skip link, desktop/mobile navigation, filter trigger,
+  filter drawer close button, login return-to links, form controls, and route
+  recovery buttons have explicit keyboard-focusable elements and visible
+  `:focus-visible` treatment from the shell.
+- Contrast review: route surfaces use semantic shell tokens; offer/request and
+  status badges retain visible text labels; errors use `role="alert"`.
+- Browser-level manual walkthrough was unavailable in this environment; visual
+  validation is limited to the successful production build and structural
+  assertions.
 - [ ] U3 (Spark, after Phase 3 domain lands on base)
