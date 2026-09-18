@@ -22,6 +22,21 @@ describe('marketplace navigation and filters (R-T2)', () => {
     assert.match(read('web/components/navigation/FilterRail.tsx'), /aria-expanded/);
   });
 
+  it('keeps the rail controlled so collapse never strands the filters', () => {
+    const rail = read('web/components/navigation/FilterRail.tsx');
+    assert.match(rail, /open:\s*boolean/, 'controlled open prop');
+    assert.match(rail, /onToggle:\s*\(\)\s*=>\s*void/, 'controlled onToggle prop');
+    assert.ok(!rail.includes('useState'), 'no internal open state');
+    assert.match(rail, /Show filters/, 'reopen control when collapsed');
+    assert.match(rail, /Collapse/, 'collapse control when open');
+  });
+
+  it('returns focus to the drawer opener on close', () => {
+    const drawer = read('web/components/navigation/FilterDrawer.tsx');
+    assert.match(drawer, /activeElement/, 'opener captured');
+    assert.match(drawer, /\.focus\(\)/, 'focus restored');
+  });
+
   it('keeps all discovery filters in the search form', () => {
     const form = read('web/components/SearchForm.tsx');
     for (const field of ['text', 'side', 'kind', 'category', 'zone', 'availability']) {
