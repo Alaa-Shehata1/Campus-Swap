@@ -11,6 +11,7 @@ import type {
   Proposal,
   ProposalStatus,
 } from '../../../src/exchanges/types.js';
+import type { ExchangesExport } from '../../../src/exchanges/store.js';
 
 export function createMysqlPool(url: string): Pool {
   return mysql.createPool(url);
@@ -590,12 +591,7 @@ export class MySqlExchangesStore {
     }));
   }
 
-  async exportState(): Promise<{
-    proposals: Proposal[];
-    exchanges: Exchange[];
-    messages: Record<string, Message[]>;
-    holds: Array<[string, string]>;
-  }> {
+  async exportState(): Promise<ExchangesExport> {
     const [prows] = await this.pool.execute<RowDataPacket[]>('SELECT * FROM proposals');
     const [erows] = await this.pool.execute<RowDataPacket[]>('SELECT * FROM exchanges');
     const [mrows] = await this.pool.execute<RowDataPacket[]>(
@@ -621,12 +617,7 @@ export class MySqlExchangesStore {
     };
   }
 
-  async importState(state: {
-    proposals: Proposal[];
-    exchanges: Exchange[];
-    messages: Record<string, Message[]>;
-    holds: Array<[string, string]>;
-  }): Promise<void> {
+  async importState(state: ExchangesExport): Promise<void> {
     if (!state || !Array.isArray(state.proposals) || !Array.isArray(state.exchanges)) {
       throw new Error('Invalid exchanges snapshot.');
     }

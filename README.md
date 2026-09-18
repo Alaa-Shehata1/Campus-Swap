@@ -51,13 +51,17 @@ npm test        # domain seam + journey tests (node:test via tsx)
 npm run typecheck
 ```
 
-## Run the web app locally (U1: browse/auth/publish)
+## Run the web app locally (U2: browse/auth/publish + proposals/exchanges)
 
 Requires Docker (self-hosted MySQL for the pilot).
 
 ```bash
 docker compose up -d mysql
-npm run seed --prefix web   # demo members (maya@kfs.edu.eg, jonas@gmail.com / password1) + listings
+# Fresh database: apply the schema once —
+docker exec -i campuswap-mysql mysql -ucampuswap -pcampuswap campuswap < db/schema.sql
+# Existing U1 database: apply only the additive U2 tables (proposals, exchanges, messages, holds) —
+tail -n +62 db/schema.sql | docker exec -i campuswap-mysql mysql -ucampuswap -pcampuswap campuswap
+npm run seed --prefix web   # demo members (maya@kfs.edu.eg, jonas@gmail.com / password1) + listings + a scheduled demo exchange with thread
 npm run dev --prefix web    # http://localhost:3000
 ```
 
@@ -66,6 +70,13 @@ U1 verified end-to-end in headless Chromium: logged-out browse + search +
 login-gated actions (SC-2), signup → first published listing (SC-1),
 duplicate-email field error, profile without email leak. Disclaimer + Terms
 link on signup and listing create; all datetimes labeled Cairo time.
+U2 verified via live-server walkthrough: propose → accept (auto-pause) →
+Cairo schedule + safety nudge → Done → Confirm → Completed, cancellation with
+reason, participant thread, cap-5 rejection, Locked indicator, 404 on
+non-participant reads; full loop also covered by `tests/mysql-exchanges.test.ts`.
+Proposal expiry + Done auto-complete run as a lazy in-process sweep on
+proposal/exchange reads (no scheduler yet — U4/post-MVP); the notification
+inbox lands in U3, so domain events are not persisted.
 
 ## Layout
 

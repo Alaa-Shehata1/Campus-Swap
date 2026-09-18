@@ -15,14 +15,15 @@ export function cairoWallToISO(naive: string): string | undefined {
     hour12: false,
   });
   let guess = Date.UTC(y, mo - 1, d, h, mi, 0);
+  const target = guess;
   for (let i = 0; i < 3; i++) {
     const wall = fmt.format(new Date(guess));
     const w = /(\d{2})\/(\d{2})\/(\d{4}), (\d{2}):(\d{2}):(\d{2})/.exec(wall);
     if (!w) return undefined;
     const wallMs = Date.UTC(Number(w[3]), Number(w[1]) - 1, Number(w[2]), Number(w[4]), Number(w[5]), Number(w[6]));
-    const diff = wallMs - guess;
+    const diff = target - wallMs;
     if (diff === 0) break;
-    guess -= diff;
+    guess += diff;
   }
   const check = new Date(guess);
   if (Number.isNaN(check.getTime())) return undefined;

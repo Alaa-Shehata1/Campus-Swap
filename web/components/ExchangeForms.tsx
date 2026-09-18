@@ -9,7 +9,7 @@ import {
   cancelAction,
   type ActionState,
 } from '../app/actions';
-import { SAFETY_NUDGE } from '../../src/exchanges/service.js';
+import { SAFETY_NUDGE } from '../../src/exchanges/types.js';
 import { Disclaimer } from './Disclaimer';
 import { FieldErrors } from './FieldErrors';
 import { SubmitButton } from './SubmitButton';
