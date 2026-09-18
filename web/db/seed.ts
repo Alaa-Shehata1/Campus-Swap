@@ -6,7 +6,17 @@
 import { createIdentityService } from '../../src/identity/service.js';
 import { createListingsService } from '../../src/listings/service.js';
 import { createExchangesService } from '../../src/exchanges/service.js';
-import { createMysqlPool, MySqlExchangesStore, MySqlIdentityStore, MySqlListingsStore } from '../lib/db/repositories.js';
+import { createReputationService } from '../../src/reputation/service.js';
+import { createModerationService } from '../../src/moderation/service.js';
+import {
+  createMysqlPool,
+  MySqlExchangesStore,
+  MySqlIdentityStore,
+  MySqlListingsStore,
+  MySqlModerationStore,
+  MySqlNotificationSink,
+  MySqlReputationStore,
+} from '../lib/db/repositories.js';
 
 const URL = process.env['MYSQL_URL'] ?? 'mysql://campuswap:campuswap@127.0.0.1:3306/campuswap';
 
@@ -91,6 +101,7 @@ async function main(): Promise<void> {
     // U2 demo: Maya proposes on Jonas's request → accept → schedule → thread.
     // Skips gracefully when the pair already exchanged (listings auto-paused).
     const listingsStore = new MySqlListingsStore(pool);
+    const notify = new MySqlNotificationSink(pool);
     const exchanges = createExchangesService(
       {
         listings: { get: (id) => listingsStore.get(id), systemPause: (id) => listings.systemPause(id) },
@@ -98,8 +109,29 @@ async function main(): Promise<void> {
           getProfile: (id) => identity.getProfile(id),
           isBlockedOrMuted: (a, b) => identity.isBlockedOrMuted(a, b),
         },
+        notify,
       },
       { store: new MySqlExchangesStore(pool) },
+    );
+    const reputation = createReputationService(
+      { exchanges: { readExchange: (id) => exchanges.readExchange(id) }, notify },
+      { store: new MySqlReputationStore(pool) },
+    );
+    const moderation = createModerationService(
+      {
+        listings: {
+          get: (id) => listingsStore.get(id),
+          systemHide: (id) => listings.systemHide(id),
+          systemUnhide: (id) => listings.systemUnhide(id),
+        },
+        identity: {
+          getProfile: (id) => identity.getProfile(id),
+          restrict: (id, r) => identity.restrict(id, r),
+        },
+        reputation: { voidReview: (by, id, reason) => reputation.voidReview(by, id, reason) },
+        notify,
+      },
+      { store: new MySqlModerationStore(pool) },
     );
     const mayaId = ids['maya@kfs.edu.eg'];
     const jonasId = ids['jonas@gmail.com'];
@@ -133,6 +165,39 @@ async function main(): Promise<void> {
         }
       } else {
         console.log('proposal skip: no Active Maya/Jonas pair (already exchanged — reset DB for a fresh demo)');
+      }
+    }
+    // U3 demo: Jonas becomes moderator (bootstrap, first run only), the demo
+    // exchange completes with bilateral reviews, and a demo report stays open.
+    if (mayaId && jonasId) {
+      try {
+        await identity.setRole('bootstrap', jonasId, 'moderator');
+        console.log('moderator: jonas@gmail.com (bootstrap)');
+      } catch {
+        console.log('moderator exists already');
+      }
+      const allEx = await exchanges.store.exportState();
+      const demo = allEx.exchanges.find((e) => e.status === 'Scheduled');
+      if (demo) {
+        const done = await exchanges.markDone(demo.participantA, demo.id);
+        if (done.ok) {
+          const other = demo.participantA === mayaId ? jonasId : mayaId;
+          await exchanges.confirm(other, demo.id);
+          console.log(`completed: ${demo.id}`);
+          const r1 = await reputation.submitReview(demo.participantA, demo.id, { score: 5, text: 'Great swap, highly recommended!' });
+          const r2 = await reputation.submitReview(other, demo.id, { score: 4, text: 'Thanks, smooth exchange!' });
+          console.log(r1.ok && r2.ok ? 'reviews: bilateral demo reviews published' : 'reviews skip');
+        }
+      }
+      const all = await listingsStore.all();
+      const target = all.find((l) => l.ownerId === jonasId && (l.status === 'Active' || l.status === 'Paused'));
+      if (target) {
+        const rep = await moderation.report(mayaId, {
+          targetType: 'listing', targetId: target.id, reasonCode: 'spam-commercial',
+          description: 'Demo report: this listing looks commercial, please review it.',
+          images: [],
+        });
+        console.log(rep.ok ? `report: ${rep.value.id} (Received)` : 'report skip (already reported or invalid)');
       }
     }
   } finally {

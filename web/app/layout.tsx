@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { sessionUser } from '../lib/auth';
+import { services } from '../lib/services';
 import { Container } from '../components/ui/Container';
 import { DesktopNav } from '../components/navigation/DesktopNav';
 import { MobileNav } from '../components/navigation/MobileNav';
@@ -13,6 +14,13 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const user = await sessionUser();
+  let unreadCount = 0;
+  let showModeration = false;
+  if (user) {
+    const svc = services();
+    unreadCount = await svc.notify.unreadCount(user.id);
+    showModeration = (await svc.identity.getProfile(user.id))?.role === 'moderator';
+  }
   return (
     <html lang="en">
       <body>
@@ -21,8 +29,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </a>
         <header className="border-b border-border bg-surface-elevated">
           <Container>
-            <DesktopNav user={user} />
-            <MobileNav user={user} />
+            <DesktopNav user={user} unreadCount={unreadCount} showModeration={showModeration} />
+            <MobileNav user={user} unreadCount={unreadCount} showModeration={showModeration} />
           </Container>
         </header>
         <main id="main" className="py-6">

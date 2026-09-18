@@ -1,9 +1,14 @@
 import Link from 'next/link';
+import { Badge } from '../ui/Badge';
 
 export function DesktopNav({
   user,
+  unreadCount = 0,
+  showModeration = false,
 }: {
   user?: { displayName: string };
+  unreadCount?: number;
+  showModeration?: boolean;
 }) {
   return (
     <nav aria-label="Primary" className="hidden items-center gap-4 lg:flex">
@@ -17,6 +22,15 @@ export function DesktopNav({
           <Link href="/proposals" className="text-sm underline">
             Proposals
           </Link>
+          <Link href="/notifications" className="flex items-center gap-1 text-sm underline">
+            Notifications
+            {unreadCount > 0 && <Badge tone="info">{unreadCount} unread</Badge>}
+          </Link>
+          {showModeration && (
+            <Link href="/moderation" className="text-sm underline">
+              Moderation
+            </Link>
+          )}
           <Link href="/publish" className="rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-brand-contrast">
             Publish
           </Link>

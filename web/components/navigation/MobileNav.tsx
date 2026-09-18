@@ -3,10 +3,16 @@
 import Link from 'next/link';
 import { useState } from 'react';
 
+import { Badge } from '../ui/Badge';
+
 export function MobileNav({
   user,
+  unreadCount = 0,
+  showModeration = false,
 }: {
   user?: { displayName: string };
+  unreadCount?: number;
+  showModeration?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -32,6 +38,15 @@ export function MobileNav({
               <Link href="/proposals" onClick={() => setOpen(false)} className="py-2 underline">
                 Proposals
               </Link>
+              <Link href="/notifications" onClick={() => setOpen(false)} className="flex items-center gap-2 py-2 underline">
+                Notifications
+                {unreadCount > 0 && <Badge tone="info">{unreadCount} unread</Badge>}
+              </Link>
+              {showModeration && (
+                <Link href="/moderation" onClick={() => setOpen(false)} className="py-2 underline">
+                  Moderation
+                </Link>
+              )}
               <Link href="/publish" onClick={() => setOpen(false)} className="rounded-md bg-brand px-3 py-2 font-medium text-brand-contrast">
                 Publish
               </Link>
