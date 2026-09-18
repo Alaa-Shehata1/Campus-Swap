@@ -5,7 +5,8 @@
  */
 import { createIdentityService } from '../../src/identity/service.js';
 import { createListingsService } from '../../src/listings/service.js';
-import { createMysqlPool, MySqlIdentityStore, MySqlListingsStore } from '../lib/db/repositories.js';
+import { createExchangesService } from '../../src/exchanges/service.js';
+import { createMysqlPool, MySqlExchangesStore, MySqlIdentityStore, MySqlListingsStore } from '../lib/db/repositories.js';
 
 const URL = process.env['MYSQL_URL'] ?? 'mysql://campuswap:campuswap@127.0.0.1:3306/campuswap';
 
@@ -86,6 +87,53 @@ async function main(): Promise<void> {
       if (!ownerId) throw new Error(`missing owner ${l.owner}`);
       const r = await listings.publish(ownerId, l.input);
       console.log(r.ok ? `listing: ${l.input.title}` : `skip: ${JSON.stringify(r.errors)}`);
+    }
+    // U2 demo: Maya proposes on Jonas's request → accept → schedule → thread.
+    // Skips gracefully when the pair already exchanged (listings auto-paused).
+    const listingsStore = new MySqlListingsStore(pool);
+    const exchanges = createExchangesService(
+      {
+        listings: { get: (id) => listingsStore.get(id), systemPause: (id) => listings.systemPause(id) },
+        identity: {
+          getProfile: (id) => identity.getProfile(id),
+          isBlockedOrMuted: (a, b) => identity.isBlockedOrMuted(a, b),
+        },
+      },
+      { store: new MySqlExchangesStore(pool) },
+    );
+    const mayaId = ids['maya@kfs.edu.eg'];
+    const jonasId = ids['jonas@gmail.com'];
+    if (mayaId && jonasId) {
+      const all = await listingsStore.all();
+      const mine = all.find((l) => l.ownerId === mayaId && l.status === 'Active');
+      const theirs = all.find((l) => l.ownerId === jonasId && l.status === 'Active');
+      if (mine && theirs) {
+        const prop = await exchanges.propose(mayaId, {
+          sideAListingIds: [mine.id],
+          sideBListingIds: [theirs.id],
+          terms: 'Demo terms: two beginner sessions per week, my guitar provided.',
+        });
+        if (prop.ok) {
+          console.log(`proposal: ${prop.value.id}`);
+          const acc = await exchanges.respond(jonasId, prop.value.id, 'accept');
+          if (acc.ok && 'exchange' in acc.value) {
+            const exId = acc.value.exchange.id;
+            console.log(`exchange: ${exId}`);
+            const sched = await exchanges.schedule(mayaId, exId, {
+              at: new Date(Date.now() + 86400000).toISOString(),
+              place: 'Library hall, North campus',
+            });
+            console.log(sched.ok ? 'scheduled: tomorrow, Library hall' : `schedule skip: ${JSON.stringify(sched)}`);
+            await exchanges.postMessage(mayaId, exId, 'Hi! Looking forward to meeting tomorrow.');
+            await exchanges.postMessage(jonasId, exId, 'Me too — I will bring my notebook.');
+            console.log('thread: 2 demo messages');
+          }
+        } else {
+          console.log(`proposal skip: ${JSON.stringify(prop.errors)}`);
+        }
+      } else {
+        console.log('proposal skip: no Active Maya/Jonas pair (already exchanged — reset DB for a fresh demo)');
+      }
     }
   } finally {
     await pool.end();

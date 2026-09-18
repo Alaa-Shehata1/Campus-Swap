@@ -1,7 +1,7 @@
 import { fail, ok, type Result } from '../common/errors.js';
 import { formatCairoTime } from '../common/cairoTime.js';
 import type { NotifyPort } from '../notifications/types.js';
-import { ExchangesStore } from './store.js';
+import { ExchangesStore, type ExchangesStorePort } from './store.js';
 import type {
   CancelReason,
   Exchange,
@@ -12,6 +12,7 @@ import type {
   Proposal,
   ProposeInput,
 } from './types.js';
+import { SAFETY_NUDGE } from './types.js';
 
 export const MAX_OPEN_PROPOSALS = 5;
 export const PROPOSAL_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
@@ -27,7 +28,7 @@ export interface ExchangesDeps {
 
 export function createExchangesService(
   deps: ExchangesDeps,
-  opts: { now?: () => number; store?: ExchangesStore } = {},
+  opts: { now?: () => number; store?: ExchangesStorePort } = {},
 ) {
   const store = opts.store ?? new ExchangesStore();
   const now = opts.now ?? Date.now;
@@ -566,9 +567,7 @@ export interface ScheduleInput {
 
 const PRIVATE_PLACE_RE = /\b(apartment|flat|house|home|room|dorm|hostel|residence|my place)\b/i;
 
-export const SAFETY_NUDGE =
-  'Safety: prefer a public on-campus spot (library hall, campus café) and tell a friend ' +
-  'where you are going. Private residences are allowed only by mutual agreement — ' +
-  'you accepted the safety reminder for a private place. See the full Terms.';
-
 export type ExchangesService = ReturnType<typeof createExchangesService>;
+
+/** Re-exported from types.js so client bundles can import it without node deps. */
+export { SAFETY_NUDGE };

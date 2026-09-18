@@ -29,6 +29,9 @@ export function MobileNav({
         <nav id="mobile-navigation" aria-label="Mobile primary" className="mt-3 grid gap-2 border-t border-border pt-3">
           {user ? (
             <>
+              <Link href="/proposals" onClick={() => setOpen(false)} className="py-2 underline">
+                Proposals
+              </Link>
               <Link href="/publish" onClick={() => setOpen(false)} className="rounded-md bg-brand px-3 py-2 font-medium text-brand-contrast">
                 Publish
               </Link>

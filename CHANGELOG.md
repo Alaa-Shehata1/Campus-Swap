@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased — Phase 5 U2: Proposals/Exchanges in the browser (BL-07..BL-10)
+
+- Web routes: proposals inbox/sent/received, propose (own-listing picker +
+  terms), proposal detail with counterparty accept (proposal-accept
+  disclaimer)/decline + either-side withdraw, exchange detail with
+  Cairo schedule + safety nudge + private-place ack, two-step completion
+  (Done → Confirm/Dispute ≤7 days), cancellation with reason, and the
+  participant-only text thread. Cap-5 rejection + Locked indicator surface
+  domain reasons; non-participant reads 404.
+- MySQL: `proposals`/`exchanges`/`messages`/`holds` tables (additive;
+  `db/schema.sql` re-applies cleanly on fresh DBs) + `MySqlExchangesStore`
+  with full seam parity; `truncateWorld` covers U2 tables.
+- Seams: new `ExchangesStorePort` (mirrors `IdentityStorePort`; service
+  behavior unchanged) + `SAFETY_NUDGE` moved to node-free `types.ts` so
+  client bundles stay browser-safe.
+- Time duties: proposal expiry + Done auto-complete run as a lazy
+  in-process sweep on proposal/exchange reads (no scheduler yet).
+- Cairo input: `datetime-local` interpreted as Africa/Cairo wall time
+  (DST-aware, verified +2/+3) before domain validation.
+- 123 tests green (`npm test`, incl. new `tests/mysql-exchanges.test.ts`),
+  `tsc --noEmit` clean, `next build` green.
+
 ## 2026-09-17 — Phase 4: Pilot Hardening & Launch (BL-15..BL-18)
 
 - Metrics seam: pilot dashboard input (members, listings, completions,

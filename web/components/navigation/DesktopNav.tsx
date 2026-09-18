@@ -14,6 +14,9 @@ export function DesktopNav({
       <span className="flex-1" />
       {user ? (
         <>
+          <Link href="/proposals" className="text-sm underline">
+            Proposals
+          </Link>
           <Link href="/publish" className="rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-brand-contrast">
             Publish
           </Link>
