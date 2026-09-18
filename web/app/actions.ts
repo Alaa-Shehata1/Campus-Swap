@@ -213,3 +213,43 @@ export async function postMessageAction(_prev: ActionState, form: FormData): Pro
   if (!result.ok) return { errors: result.errors };
   redirect(`/exchanges/${exchangeId}`);
 }
+
+export async function submitReviewAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const userId = await sessionUserId();
+  const exchangeId = String(form.get('exchangeId') ?? '');
+  if (!userId) redirect(`/login?returnTo=/exchanges/${encodeURIComponent(exchangeId)}/review`);
+  const { reputation } = services();
+  const result = await reputation.submitReview(userId, exchangeId, {
+    score: Number(form.get('score') ?? 0),
+    text: String(form.get('text') ?? ''),
+  });
+  if (!result.ok) return { errors: result.errors };
+  redirect(`/exchanges/${exchangeId}/review`);
+}
+
+export async function editReviewAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const userId = await sessionUserId();
+  const exchangeId = String(form.get('exchangeId') ?? '');
+  const reviewId = String(form.get('reviewId') ?? '');
+  if (!userId) redirect(`/login?returnTo=/exchanges/${encodeURIComponent(exchangeId)}/review`);
+  const { reputation } = services();
+  const result = await reputation.editReview(userId, reviewId, {
+    score: Number(form.get('score') ?? 0),
+    text: String(form.get('text') ?? ''),
+  });
+  if (!result.ok) return { errors: result.errors };
+  redirect(`/exchanges/${exchangeId}/review`);
+}
+
+export async function respondReviewAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const userId = await sessionUserId();
+  const exchangeId = String(form.get('exchangeId') ?? '');
+  const reviewId = String(form.get('reviewId') ?? '');
+  if (!userId) redirect(`/login?returnTo=/exchanges/${encodeURIComponent(exchangeId)}/review`);
+  const { reputation } = services();
+  const result = await reputation.respondToReview(userId, reviewId, {
+    text: String(form.get('text') ?? ''),
+  });
+  if (!result.ok) return { errors: result.errors };
+  redirect(`/exchanges/${exchangeId}/review`);
+}

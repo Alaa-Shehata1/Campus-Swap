@@ -62,6 +62,16 @@ export default async function ExchangeDetail({ params }: { params: Promise<{ id:
             No schedule set yet.
           </p>
         )}
+        {e.status === 'Completed' && (
+          <p className="mt-4">
+            <Link
+              href={`/exchanges/${e.id}/review`}
+              className="inline-block rounded bg-emerald-700 px-4 py-2 font-medium text-white"
+            >
+              Leave or view reviews →
+            </Link>
+          </p>
+        )}
         {e.status === 'Cancelled' && (
           <p className="mt-3 text-sm">
             <span className="font-medium">Cancelled:</span> {e.cancelReason}

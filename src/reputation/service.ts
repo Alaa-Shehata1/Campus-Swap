@@ -2,10 +2,7 @@ import { fail, ok, type Result } from '../common/errors.js';
 import type { NotifyPort } from '../notifications/types.js';
 import { ReputationStore, type ReputationStorePort } from './store.js';
 import type { Aggregate, ExchangesPort, Review, SubmitReviewInput } from './types.js';
-
-export const MAX_REVIEW_TEXT = 1000;
-export const REVEAL_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
-export const REVIEW_EDIT_MS = 48 * 60 * 60 * 1000;
+import { MAX_REVIEW_TEXT, REVEAL_WINDOW_MS, REVIEW_EDIT_MS } from './types.js';
 
 export function createReputationService(
   deps: { exchanges: ExchangesPort; identity?: { authorizeMemberSession(token: unknown): Result<string> }; notify?: NotifyPort },
@@ -282,3 +279,6 @@ export interface RespondInput {
 }
 
 export type ReputationService = ReturnType<typeof createReputationService>;
+
+/** Re-exported from types.js so client bundles can import it without node deps. */
+export { MAX_REVIEW_TEXT, REVEAL_WINDOW_MS, REVIEW_EDIT_MS };
