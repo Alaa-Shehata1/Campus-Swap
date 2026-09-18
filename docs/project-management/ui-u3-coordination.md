@@ -42,6 +42,15 @@ Tailwind classes across routes.
 Container({ children, className?, measure?: 'fluid' | 'readable' })
 // fluid (default): full-width outer wrapper, responsive gutters. readable: max-w-prose centered for prose/forms.
 
+FilterRail({ children, open, onToggle })
+// controlled desktop filter column; collapsed state keeps a slim reopen rail.
+// Parent owns `open` and widens results when collapsed.
+
+FilterDrawer({ open, onClose, children })
+// mobile drawer: role=dialog aria-modal, Escape dismissal, initial focus,
+// focus returned to the opener on close. `lg:hidden`.
+```
+
 Panel({ children, className?, tone?: 'elevated' | 'bordered' })
 // token-backed surface. No ad-hoc bg-white/border-stone-200/rounded/shadow classes on routes.
 
@@ -85,10 +94,10 @@ record). Keyboard-only + contrast/focus notes for touched routes.
 
 ## Status
 
-- [x] R-T1 contract defined (this file)
-- [ ] R-T1 implemented (Spark, this branch)
-- [ ] R-T2 implemented (Spark, this branch)
-- [ ] Shell pushed → human notifies Copilot
+- [x] R-T1 implemented (Spark, shell branch)
+- [x] R-T2 implemented on the shell branch (nav/filter/SearchForm by Copilot as
+   `3d5eec7`/`e8657a8`; FilterRail controlled-interface fix + drawer
+   focus-return by Spark).
 - [x] R-T3–T6, R+, R-T7 (Copilot, routes branch)
 
 ## Route-branch acceptance notes (2026-09-18)

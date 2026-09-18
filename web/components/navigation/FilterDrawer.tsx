@@ -12,14 +12,20 @@ export function FilterDrawer({
   children: React.ReactNode;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  const openerRef = useRef<Element | null>(null);
   useEffect(() => {
     if (!open) return;
+    openerRef.current = document.activeElement;
     closeRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      // Return focus to the control that opened the drawer.
+      if (openerRef.current instanceof HTMLElement) openerRef.current.focus();
+    };
   }, [open, onClose]);
   if (!open) return null;
   return (
