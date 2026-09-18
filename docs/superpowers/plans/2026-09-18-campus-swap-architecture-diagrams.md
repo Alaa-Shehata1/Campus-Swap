@@ -1,7 +1,7 @@
 # CampusSwap Architecture Diagrams Plan
 
-> Status: Proposed plan only. This document does not create diagrams or
-> install rendering tools.
+> Status: Approved planning baseline. This document defines the implementation
+> work; diagram creation and tool installation remain later tasks.
 >
 > Primary output directory: `docs/diagrams/`
 >
@@ -112,29 +112,34 @@ docs/diagrams/
 
 ## 4. Tool decision matrix
 
-Use the simplest tool that provides a readable result for the diagram. Do not
-rewrite the same diagram in multiple languages without a documented reason.
+Use the tool whose notation best expresses the diagram's meaning and produces
+the clearest professional output. Do not rewrite the same diagram in multiple
+languages without a documented reason.
 
 | Diagram | Primary tool | Why | Secondary option |
 |---|---|---|---|
-| System context | D2 | Strong layout for actor/system boundaries and readable labels | Mermaid |
-| Container architecture | D2 | Clear nested boundaries and architecture composition | Mermaid |
-| Module dependencies | Mermaid | Simple directed graph and native Markdown embedding | D2 |
-| Data model | PlantUML | Conceptual ER notation and relationship cardinality | Mermaid `erDiagram` |
-| Exchange lifecycle | Mermaid | State and sequence diagrams are easy to embed and review | PlantUML |
-| Moderation workflow | Mermaid | State/flow combination and readable rejection paths | PlantUML |
-| Review lifecycle | Mermaid | Compact state diagram with timed reveal branches | PlantUML |
-| Authorization boundaries | Mermaid | Flowchart plus role matrix integration | D2 |
-| Privacy and retention | Mermaid | Timeline and access decision flow | PlantUML |
-| Deployment | D2 | Strong physical/runtime topology layout | Mermaid |
-| Mini diagrams | Mermaid | GitHub Markdown compatibility and low reader friction | None by default |
+| System context | D2 | Best for composed boundaries, actors, systems, and readable spatial grouping | Mermaid fallback |
+| Container architecture | D2 | Best for nested runtime containers and architecture-level composition | Mermaid fallback |
+| Module dependencies | Mermaid | Best for a compact dependency graph that embeds in Markdown | D2 if layout becomes dense |
+| Data model | PlantUML | Best for conceptual ER notation and relationship cardinality | Mermaid `erDiagram` if PlantUML is less readable |
+| Exchange lifecycle | Mermaid | Best native state and sequence notation with easy review | PlantUML if the combined view becomes crowded |
+| Moderation workflow | Mermaid | Best for state/flow paths and explicit rejection branches | D2 for a presentation-focused flow |
+| Review lifecycle | Mermaid | Best compact state machine with timed reveal branches | PlantUML if state nesting is needed |
+| Authorization boundaries | Mermaid | Best for role-to-action flows plus Markdown permission matrix | D2 for a visual trust-boundary view |
+| Privacy and retention | Mermaid | Best for timelines and allow/deny decision flows | PlantUML for formal activity notation |
+| Deployment | D2 | Best for professional runtime topology and environment boundaries | Mermaid fallback |
+| Mini diagrams | Mermaid | Best GitHub-native embedding and lowest reader friction | None by default |
 
 ### Tooling principle
 
 Mermaid is the default language for diagrams embedded in Markdown. D2 is used
-where spatial composition and grouping materially improve an architecture or
-deployment view. PlantUML is reserved for the conceptual data model and only
-for lifecycle diagrams where Mermaid becomes unreadable.
+for system, container, and deployment views where spatial composition materially
+improves comprehension. PlantUML is used for the conceptual data model because
+its ER notation is the most expressive fit; it may be used for a lifecycle
+diagram only when Mermaid cannot keep the full view readable.
+
+This is a quality-based choice, not a preference for one tool. Each diagram
+must have one canonical source language, and the catalog records that choice.
 
 This keeps the project from having three competing versions of every diagram.
 
@@ -380,9 +385,19 @@ the binary. Record the version and checksum.
 
 ### SVG and PDF conversion
 
-Prefer native SVG/PDF output from each renderer. If a renderer only emits SVG,
-use a pinned SVG-to-PDF converter and document the command in
-`docs/diagrams/tooling/README.md`.
+Prefer native SVG output from each renderer for crisp browser and GitHub
+display. Generate PDF from the same canonical source in the same render
+command. If a renderer's PDF output is inconsistent, use a pinned
+SVG-to-PDF converter and document the command in
+`docs/diagrams/tooling/README.md`; never hand-edit either output.
+
+The professional-output acceptance bar is:
+
+- Vector SVG with selectable text
+- PDF with selectable text and no raster-only screenshots
+- Consistent fonts, spacing, arrowheads, and color semantics
+- Readable at normal document width and when printed
+- Stable output from the pinned tool versions
 
 ## 11. Rendering workflow
 
@@ -498,4 +513,3 @@ These are intentionally deferred until implementation:
 - Whether the conceptual data model is more readable in PlantUML ER notation
   or Mermaid ER notation after a prototype.
 - Whether any single full diagram must be split into two views for readability.
-
