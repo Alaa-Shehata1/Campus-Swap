@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { services } from '../lib/services';
 import { sessionUserId, setSessionCookie } from '../lib/auth';
+import { cairoWallToISO } from '../lib/cairo';
 import type { FieldError } from '../../src/common/errors.js';
 
 export interface ActionState {
@@ -127,4 +128,78 @@ export async function withdrawAction(_prev: ActionState, form: FormData): Promis
   const result = await exchanges.withdraw(userId, proposalId);
   if (!result.ok) return { errors: result.errors };
   redirect('/proposals');
+}
+
+export async function scheduleAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const userId = await sessionUserId();
+  const exchangeId = String(form.get('exchangeId') ?? '');
+  if (!userId) redirect(`/login?returnTo=/exchanges/${encodeURIComponent(exchangeId)}`);
+  const raw = String(form.get('at') ?? '');
+  const at = cairoWallToISO(raw);
+  if (!at) {
+    return { errors: [{ code: 'schedule-invalid', field: 'at', message: 'Provide a valid date and time.' }] };
+  }
+  const { exchanges } = services();
+  const result = await exchanges.schedule(userId, exchangeId, {
+    at,
+    place: String(form.get('place') ?? ''),
+    acknowledgedSafetyReminder: form.get('ack') === 'on',
+  });
+  if (!result.ok) return { errors: result.errors };
+  redirect(`/exchanges/${exchangeId}`);
+}
+
+export async function markDoneAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const userId = await sessionUserId();
+  const exchangeId = String(form.get('exchangeId') ?? '');
+  if (!userId) redirect(`/login?returnTo=/exchanges/${encodeURIComponent(exchangeId)}`);
+  const { exchanges } = services();
+  const override = String(form.get('overrideReason') ?? '').trim();
+  const result = await exchanges.markDone(userId, exchangeId, override ? { overrideReason: override } : {});
+  if (!result.ok) return { errors: result.errors };
+  redirect(`/exchanges/${exchangeId}`);
+}
+
+export async function confirmAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const userId = await sessionUserId();
+  const exchangeId = String(form.get('exchangeId') ?? '');
+  if (!userId) redirect(`/login?returnTo=/exchanges/${encodeURIComponent(exchangeId)}`);
+  const { exchanges } = services();
+  const result = await exchanges.confirm(userId, exchangeId);
+  if (!result.ok) return { errors: result.errors };
+  redirect(`/exchanges/${exchangeId}`);
+}
+
+export async function disputeAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const userId = await sessionUserId();
+  const exchangeId = String(form.get('exchangeId') ?? '');
+  if (!userId) redirect(`/login?returnTo=/exchanges/${encodeURIComponent(exchangeId)}`);
+  const { exchanges } = services();
+  const result = await exchanges.dispute(userId, exchangeId);
+  if (!result.ok) return { errors: result.errors };
+  redirect(`/exchanges/${exchangeId}`);
+}
+
+export async function cancelAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const userId = await sessionUserId();
+  const exchangeId = String(form.get('exchangeId') ?? '');
+  if (!userId) redirect(`/login?returnTo=/exchanges/${encodeURIComponent(exchangeId)}`);
+  const reason = String(form.get('reason') ?? '');
+  const valid = ['no-show', 'conflict', 'item-unavailable', 'safety-concern', 'other'];
+  if (!valid.includes(reason)) {
+    return {
+      errors: [{
+        code: 'invalid', field: 'reason',
+        message: 'Cancellation requires a reason: no-show, conflict, item-unavailable, safety-concern, or other.',
+      }],
+    };
+  }
+  const { exchanges } = services();
+  const detail = String(form.get('detail') ?? '').trim();
+  const result = await exchanges.cancel(userId, exchangeId, {
+    reason: reason as 'no-show' | 'conflict' | 'item-unavailable' | 'safety-concern' | 'other',
+    ...(detail ? { detail } : {}),
+  });
+  if (!result.ok) return { errors: result.errors };
+  redirect(`/exchanges/${exchangeId}`);
 }
