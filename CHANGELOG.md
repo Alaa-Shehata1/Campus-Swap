@@ -15,7 +15,7 @@
   (`not-configured`) until the privacy seam gets a MySQL store (U4);
   handover approval needs `MODERATION_OWNER_ID`; notifications have no deep
   links yet.
-- 141 tests green (`npm test`, incl. `tests/mysql-u3.test.ts`),
+- 138 tests green (`npm test`, incl. `tests/mysql-u3.test.ts`),
   `tsc --noEmit` clean, `next build` green.
 
 ## Unreleased — Phase 5 U2: Proposals/Exchanges in the browser (BL-07..BL-10)
