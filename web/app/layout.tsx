@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { sessionUser } from '../lib/auth';
 import { Container } from '../components/ui/Container';
+import { DesktopNav } from '../components/navigation/DesktopNav';
+import { MobileNav } from '../components/navigation/MobileNav';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -19,38 +21,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </a>
         <header className="border-b border-border bg-surface-elevated">
           <Container>
-            <nav aria-label="Primary" className="flex items-center gap-4 py-3">
-              <Link href="/" className="text-lg font-bold text-brand-ink">
-                CampusSwap
-              </Link>
-              <span className="text-sm text-text-muted">KFS University · money-free exchange</span>
-              <span className="flex-1" />
-              {user ? (
-                <>
-                  <Link href="/publish" className="rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-brand-contrast">
-                    Publish
-                  </Link>
-                  <Link href="/me" className="text-sm underline">
-                    {user.displayName}
-                  </Link>
-                  <Link href="/logout" className="text-sm underline">
-                    Log out
-                  </Link>
-                </>
-              ) : (
-                <>
-                  <Link href="/login" className="text-sm underline">
-                    Log in
-                  </Link>
-                  <Link
-                    href="/signup"
-                    className="rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-brand-contrast"
-                  >
-                    Sign up
-                  </Link>
-                </>
-              )}
-            </nav>
+            <DesktopNav user={user} />
+            <MobileNav user={user} />
           </Container>
         </header>
         <main id="main" className="py-6">
