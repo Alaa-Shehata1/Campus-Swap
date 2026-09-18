@@ -25,6 +25,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <span className="flex-1" />
             {user ? (
               <>
+                <Link href="/proposals" className="text-sm underline">
+                  Proposals
+                </Link>
                 <Link href="/publish" className="rounded bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white">
                   Publish
                 </Link>

@@ -87,3 +87,44 @@ export async function updateProfileAction(_prev: ActionState, form: FormData): P
   if (!result.ok) return { errors: result.errors };
   redirect('/me');
 }
+
+export async function proposeAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const userId = await sessionUserId();
+  const target = String(form.get('targetListingId') ?? '');
+  if (!userId) redirect(`/login?returnTo=/proposals/new?listing=${encodeURIComponent(target)}`);
+  const { exchanges } = services();
+  const result = await exchanges.propose(userId, {
+    sideAListingIds: form.getAll('sideA').map(String).filter(Boolean),
+    sideBListingIds: [target],
+    terms: String(form.get('terms') ?? ''),
+  });
+  if (!result.ok) return { errors: result.errors };
+  redirect(`/proposals/${result.value.id}`);
+}
+
+export async function respondAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const userId = await sessionUserId();
+  const proposalId = String(form.get('proposalId') ?? '');
+  if (!userId) redirect(`/login?returnTo=/proposals/${encodeURIComponent(proposalId)}`);
+  const decision = String(form.get('decision') ?? '');
+  if (decision !== 'accept' && decision !== 'decline') {
+    return { errors: [{ code: 'invalid', field: 'decision', message: 'Choose accept or decline.' }] };
+  }
+  const { exchanges } = services();
+  const result = await exchanges.respond(userId, proposalId, decision);
+  if (!result.ok) return { errors: result.errors };
+  if (decision === 'accept' && typeof result.value === 'object' && 'exchange' in result.value) {
+    redirect(`/exchanges/${result.value.exchange.id}`);
+  }
+  redirect('/proposals');
+}
+
+export async function withdrawAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const userId = await sessionUserId();
+  const proposalId = String(form.get('proposalId') ?? '');
+  if (!userId) redirect(`/login?returnTo=/proposals/${encodeURIComponent(proposalId)}`);
+  const { exchanges } = services();
+  const result = await exchanges.withdraw(userId, proposalId);
+  if (!result.ok) return { errors: result.errors };
+  redirect('/proposals');
+}

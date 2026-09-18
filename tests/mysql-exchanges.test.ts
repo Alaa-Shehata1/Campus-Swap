@@ -82,7 +82,7 @@ describe('mysql exchanges (U2 seam)', () => {
 
       const accepted = await exchanges.respond(b.value.id, prop.value.id, 'accept');
       assert.equal(accepted.ok, true);
-      if (!accepted.ok) return;
+      if (!accepted.ok || !('exchange' in accepted.value)) return;
       assert.equal(accepted.value.exchange.status, 'Scheduled');
 
       // Accept auto-pauses both listings.

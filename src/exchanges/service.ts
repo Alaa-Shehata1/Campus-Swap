@@ -1,7 +1,7 @@
 import { fail, ok, type Result } from '../common/errors.js';
 import { formatCairoTime } from '../common/cairoTime.js';
 import type { NotifyPort } from '../notifications/types.js';
-import { ExchangesStore } from './store.js';
+import { ExchangesStore, type ExchangesStorePort } from './store.js';
 import type {
   CancelReason,
   Exchange,
@@ -27,7 +27,7 @@ export interface ExchangesDeps {
 
 export function createExchangesService(
   deps: ExchangesDeps,
-  opts: { now?: () => number; store?: ExchangesStore } = {},
+  opts: { now?: () => number; store?: ExchangesStorePort } = {},
 ) {
   const store = opts.store ?? new ExchangesStore();
   const now = opts.now ?? Date.now;
